@@ -1,0 +1,6 @@
+FROM vdaas/vald-agent-ngt:v0.0.50 as vald
+
+FROM ann-benchmarks
+COPY --from=vald /go/bin/ngt /go/bin/ngt
+
+RUN pip3 install vald-client-python
