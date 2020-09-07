@@ -8,6 +8,8 @@ import yaml
 import subprocess
 import time
 import atexit
+import urllib.request
+import urllib.error
 
 
 default_server_config = {
@@ -35,8 +37,25 @@ default_server_config = {
                 }
             }
         ],
-        'startup_strategy': ['agent-grpc'],
-        'shutdown_strategy': ['agent-grpc'],
+        'health_check_servers': [
+            {
+                'name': 'readiness',
+                'host': '127.0.0.1',
+                'port': 3001,
+                'mode': '',
+                'probe_wait_time': '3s',
+                'http': {
+                    'shutdown_duration': '5s',
+                    'handler_timeout': '',
+                    'idle_timeout': '',
+                    'read_header_timeout': '',
+                    'read_timeout': '',
+                    'write_timeout': ''
+                }                
+            }
+        ],
+        'startup_strategy': [ 'agent-grpc', 'readiness' ],
+        'shutdown_strategy': [ 'readiness', 'agent-grpc' ],
         'full_shutdown_duration': '600s',
         'tls': {
             'enabled': False,
@@ -70,9 +89,18 @@ class Vald(BaseANN):
             yaml.dump(self._param, f)
         vectors = [payload_pb2.Object.Vector(id=str(i), vector=X[i].tolist()) for i in range(len(X))]
 
-        pid = subprocess.Popen(['/go/bin/ngt', '-f', 'config.yaml'])
-        atexit.register(lambda: pid.kill())
-        time.sleep(10)
+        p = subprocess.Popen(['/go/bin/ngt', '-f', 'config.yaml'])
+        atexit.register(lambda: p.kill())
+        while True:
+            try:
+                with urllib.request.urlopen('http://localhost:3001/readiness') as response:
+                    print(response)
+                    if response.getcode() == 200:
+                        break
+            except urllib.error.HTTPError as e:
+                pass
+            except urllib.error.URLError as e:
+                pass
 
         for _ in self._stub.StreamInsert(iter(vectors)): pass
         self._stub.CreateIndex(payload_pb2.Control.CreateIndexRequest(pool_size=10000))
