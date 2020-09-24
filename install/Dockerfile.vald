@@ -1,6 +1,8 @@
-FROM vdaas/vald-agent-ngt:v0.0.50 as vald
+ARG VALD_VERSION=0.0.50
+FROM vdaas/vald-agent-ngt:v${VALD_VERSION} as vald
 
 FROM ann-benchmarks
+ARG VALD_VERSION
 COPY --from=vald /go/bin/ngt /go/bin/ngt
 
-RUN pip3 install vald-client-python==0.0.50
+RUN pip3 install vald-client-python==${VALD_VERSION}
