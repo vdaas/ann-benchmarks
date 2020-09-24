@@ -66,6 +66,12 @@ default_server_config = {
     }
 }
 
+grpc_opts = [
+    ('grpc.keepalive_time_ms', 1000 * 10),
+    ('grpc.keepalive_timeout_ms', 1000 * 10),
+    ('grpc.max_connection_idle_ms', 1000 * 50)
+]
+
 metrics = {'euclidean': 'l2', 'angular': 'cosine'}
 
 
@@ -79,11 +85,10 @@ class Vald(BaseANN):
             'creation_edge_size': int(params['edge']),
             'bulk_insert_chunk_size': int(params['bulk'])
         }
-        channel = grpc.insecure_channel('localhost:8082')
-        self._stub = agent_pb2_grpc.AgentStub(channel)
 
     def fit(self, X):
-        self._ngt_config['dimension'] = len(X[0])
+        dim = len(X[0])
+        self._ngt_config['dimension'] = dim
         self._param['ngt'].update(self._ngt_config)
         with open('config.yaml', 'w') as f:
             yaml.dump(self._param, f)
@@ -94,19 +99,20 @@ class Vald(BaseANN):
         while True:
             try:
                 with urllib.request.urlopen('http://localhost:3001/readiness') as response:
-                    print(response)
                     if response.getcode() == 200:
                         break
-            except urllib.error.HTTPError as e:
-                pass
-            except urllib.error.URLError as e:
+            except (urllib.error.HTTPError, urllib.error.URLError):
                 pass
 
-        for _ in self._stub.StreamInsert(iter(vectors)): pass
-        self._stub.CreateIndex(payload_pb2.Control.CreateIndexRequest(pool_size=10000))
+        channel = grpc.insecure_channel('localhost:8082', grpc_opts)
+        stub = agent_pb2_grpc.AgentStub(channel)
+        for _ in stub.StreamInsert(iter(vectors)): pass
+        stub.CreateIndex(payload_pb2.Control.CreateIndexRequest(pool_size=10000))
 
     def set_query_arguments(self, epsilon):
         self._epsilon = epsilon - 1.0
+        channel = grpc.insecure_channel('localhost:8082', grpc_opts)
+        self._stub = agent_pb2_grpc.AgentStub(channel)
 
     def query(self, v, n):
         response = self._stub.Search(payload_pb2.Search.Request(
