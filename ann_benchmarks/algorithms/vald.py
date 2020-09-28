@@ -1,16 +1,15 @@
 from __future__ import absolute_import
-import grpc
-import numpy
-from vald import payload_pb2
-from vald import agent_pb2_grpc
-from ann_benchmarks.algorithms.base import BaseANN
-import yaml
-import subprocess
-import time
-import atexit
-import urllib.request
-import urllib.error
 
+import atexit
+import subprocess
+import urllib.error
+import urllib.request
+
+import grpc
+import yaml
+from ann_benchmarks.algorithms.base import BaseANN
+
+from vald import agent_pb2_grpc, payload_pb2
 
 default_server_config = {
     'version': 'v0.0.0',
@@ -51,11 +50,11 @@ default_server_config = {
                     'read_header_timeout': '',
                     'read_timeout': '',
                     'write_timeout': ''
-                }                
+                }
             }
         ],
-        'startup_strategy': [ 'agent-grpc', 'readiness' ],
-        'shutdown_strategy': [ 'readiness', 'agent-grpc' ],
+        'startup_strategy': ['agent-grpc', 'readiness'],
+        'shutdown_strategy': ['readiness', 'agent-grpc'],
         'full_shutdown_duration': '600s',
         'tls': {
             'enabled': False,
@@ -85,6 +84,7 @@ class Vald(BaseANN):
             'creation_edge_size': int(params['edge']),
             'bulk_insert_chunk_size': int(params['bulk'])
         }
+        self._address = 'localhost:8082'
 
     def fit(self, X):
         dim = len(X[0])
@@ -92,7 +92,11 @@ class Vald(BaseANN):
         self._param['ngt'].update(self._ngt_config)
         with open('config.yaml', 'w') as f:
             yaml.dump(self._param, f)
-        vectors = [payload_pb2.Object.Vector(id=str(i), vector=X[i].tolist()) for i in range(len(X))]
+        vectors = [
+            payload_pb2.Object.Vector(
+                id=str(i),
+                vector=X[i].tolist()) for i in range(
+                len(X))]
 
         p = subprocess.Popen(['/go/bin/ngt', '-f', 'config.yaml'])
         atexit.register(lambda: p.kill())
@@ -104,14 +108,17 @@ class Vald(BaseANN):
             except (urllib.error.HTTPError, urllib.error.URLError):
                 pass
 
-        channel = grpc.insecure_channel('localhost:8082', grpc_opts)
+        channel = grpc.insecure_channel(self._address, grpc_opts)
         stub = agent_pb2_grpc.AgentStub(channel)
-        for _ in stub.StreamInsert(iter(vectors)): pass
-        stub.CreateIndex(payload_pb2.Control.CreateIndexRequest(pool_size=10000))
+        for _ in stub.StreamInsert(iter(vectors)):
+            pass
+        stub.CreateIndex(
+            payload_pb2.Control.CreateIndexRequest(
+                pool_size=10000))
 
     def set_query_arguments(self, epsilon):
         self._epsilon = epsilon - 1.0
-        channel = grpc.insecure_channel('localhost:8082', grpc_opts)
+        channel = grpc.insecure_channel(self._address, grpc_opts)
         self._stub = agent_pb2_grpc.AgentStub(channel)
 
     def query(self, v, n):
