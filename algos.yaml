@@ -348,7 +348,7 @@ float:
       run-groups:
         exact:
           args: []
-    vald:
+    vald(NGT-panng):
       docker-tag: ann-benchmarks-vald
       module: ann_benchmarks.algorithms.vald
       constructor: Vald
