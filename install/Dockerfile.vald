@@ -1,4 +1,4 @@
-ARG VALD_VERSION=0.0.50
+ARG VALD_VERSION=0.0.62
 FROM vdaas/vald-agent-ngt:v${VALD_VERSION} as vald
 
 FROM ann-benchmarks
