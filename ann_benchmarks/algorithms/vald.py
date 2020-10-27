@@ -9,7 +9,10 @@ import grpc
 import yaml
 from ann_benchmarks.algorithms.base import BaseANN
 
-from vald import agent_pb2_grpc, payload_pb2
+from vald.v1.vald import insert_pb2_grpc, search_pb2_grpc
+from vald.v1.agent.core import agent_pb2_grpc
+from vald.v1.payload import payload_pb2
+
 
 default_server_config = {
     'version': 'v0.0.0',
@@ -92,11 +95,11 @@ class Vald(BaseANN):
         self._param['ngt'].update(self._ngt_config)
         with open('config.yaml', 'w') as f:
             yaml.dump(self._param, f)
+        cfg = payload_pb2.Insert.Config(skip_strict_exist_check=True)
         vectors = [
-            payload_pb2.Object.Vector(
-                id=str(i),
-                vector=X[i].tolist()) for i in range(
-                len(X))]
+            payload_pb2.Insert.Request(
+                vector=payload_pb2.Object.Vector(id=str(i), vector=X[i].tolist()),
+                config=cfg) for i in range(len(X))]
 
         p = subprocess.Popen(['/go/bin/ngt', '-f', 'config.yaml'])
         atexit.register(lambda: p.kill())
@@ -109,24 +112,23 @@ class Vald(BaseANN):
                 pass
 
         channel = grpc.insecure_channel(self._address, grpc_opts)
-        stub = agent_pb2_grpc.AgentStub(channel)
-        for _ in stub.StreamInsert(iter(vectors)):
+        istub = insert_pb2_grpc.InsertStub(channel)
+        for _ in istub.StreamInsert(iter(vectors)):
             pass
-        stub.CreateIndex(
+
+        astub = agent_pb2_grpc.AgentStub(channel)
+        astub.CreateIndex(
             payload_pb2.Control.CreateIndexRequest(
                 pool_size=10000))
 
     def set_query_arguments(self, epsilon):
         self._epsilon = epsilon - 1.0
         channel = grpc.insecure_channel(self._address, grpc_opts)
-        self._stub = agent_pb2_grpc.AgentStub(channel)
+        self._stub = search_pb2_grpc.SearchStub(channel)
 
     def query(self, v, n):
-        response = self._stub.Search(payload_pb2.Search.Request(
-            vector=v.tolist(),
-            config=payload_pb2.Search.Config(
-                num=n, radius=-1.0, epsilon=self._epsilon, timeout=3000000
-            )))
+        cfg = payload_pb2.Search.Config(num=n, radius=-1.0, epsilon=self._epsilon, timeout=3000000)
+        response = self._stub.Search(payload_pb2.Search.Request(vector=v.tolist(), config=cfg))
         return [int(result.id) for result in response.results]
 
     def __str__(self):
