@@ -30,6 +30,7 @@ Evaluated
 * [N2](https://github.com/kakao/n2)
 * [ScaNN](https://github.com/google-research/google-research/tree/master/scann)
 * [Elastiknn](https://github.com/alexklibisz/elastiknn)
+* [vald](https://github.com/vdaas/vald): NGT(PANNG)
 
 Data sets
 =========
