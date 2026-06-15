@@ -1,5 +1,312 @@
 float:
   any:
+    ArcFlare:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a150-ep32:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # fp16 beam — better graph (alpha=1.5, ep=32, cs=128) targeting recall > 0.95 @ QPS > 7315
+            - [[0.0, -1.0, 16, 0, 0, 64],
+               [0.0, -1.0, 16, 0, 0, 128],
+               [0.0, -1.0, 16, 0, 0, 200],
+               [0.0, -1.0, 16, 0, 0, 300],
+               [0.0, -1.0, 16, 0, 0, 400],
+               [0.0, -1.0, 16, 0, 0, 500],
+               [0.0, -1.0, 20, 0, 0, 200],
+               [0.0, -1.0, 20, 0, 0, 300],
+               [0.0, -1.0, 20, 0, 0, 400],
+               [0.0, -1.0, 20, 0, 0, 500],
+               [0.0, -1.0, 24, 0, 0, 200],
+               [0.0, -1.0, 24, 0, 0, 300],
+               [0.0, -1.0, 24, 0, 0, 400],
+               [0.0, -1.0, 24, 0, 0, 500],
+               [0.0, -1.0, 32, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 240],
+               [0.0, -1.0, 32, 0, 0, 260],
+               [0.0, -1.0, 32, 0, 0, 280],
+               [0.0, -1.0, 32, 0, 0, 300],
+               [0.0, -1.0, 32, 0, 0, 400],
+               [0.0, -1.0, 32, 0, 0, 500],
+               [0.40, 0.80, 16, 0, 2, 0],
+               [0.40, 0.80, 16, 0, 4, 0],
+               [0.40, 0.80, 16, 0, 8, 0],
+               [0.40, 0.80, 32, 0, 4, 0],
+               [0.40, 0.80, 32, 0, 8, 0]]
+        e64-k256-a150-v2:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # GIST-960 validated: fp16 beam (AF_FP16_BEAM=1 default)
+            # K=256 alpha=1.5 beats ScaNN (0.936@1276 QPS) at multiple points:
+            #   np=24 ef=60: recall=0.9412@1869 QPS (+46% over ScaNN)
+            #   np=32 ef=80: recall=0.9631@1363 QPS (+7%, +2.7% recall)
+            - [[0.0, -1.0, 10, 0, 0, 80],
+               [0.0, -1.0, 12, 0, 0, 80],
+               [0.0, -1.0, 14, 0, 0, 80],
+               [0.0, -1.0, 16, 0, 0, 50],
+               [0.0, -1.0, 16, 0, 0, 60],
+               [0.0, -1.0, 16, 0, 0, 80],
+               [0.0, -1.0, 20, 0, 0, 50],
+               [0.0, -1.0, 20, 0, 0, 60],
+               [0.0, -1.0, 20, 0, 0, 80],
+               [0.0, -1.0, 22, 0, 0, 60],
+               [0.0, -1.0, 24, 0, 0, 60],
+               [0.0, -1.0, 24, 0, 0, 80],
+               [0.0, -1.0, 24, 0, 0, 100],
+               [0.0, -1.0, 28, 0, 0, 80],
+               [0.0, -1.0, 32, 0, 0, 80],
+               [0.0, -1.0, 32, 0, 0, 100],
+               [0.0, -1.0, 40, 0, 0, 80],
+               [0.0, -1.0, 40, 0, 0, 100],
+               [0.0, -1.0, 40, 0, 0, 120],
+               [0.0, -1.0, 48, 0, 0, 80],
+               [0.0, -1.0, 64, 0, 0, 80],
+               [0.0, -1.0, 64, 0, 0, 100],
+               [0.0, -1.0, 80, 0, 0, 80],
+               [0.0, -1.0, 96, 0, 0, 80],
+               [0.0, -1.0, 128, 0, 0, 80]]
+        e64-k256-a150-np:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # Higher n_probe (36-48) with lower ef: more cluster coverage, fewer beam expansions
+            # np=36-40 probes 14-16% of clusters, ef=160-220 enough for recall>0.96
+            - [[0.0, -1.0, 36, 0, 0, 160],
+               [0.0, -1.0, 36, 0, 0, 180],
+               [0.0, -1.0, 36, 0, 0, 200],
+               [0.0, -1.0, 36, 0, 0, 220],
+               [0.0, -1.0, 36, 0, 0, 240],
+               [0.0, -1.0, 40, 0, 0, 120],
+               [0.0, -1.0, 40, 0, 0, 140],
+               [0.0, -1.0, 40, 0, 0, 160],
+               [0.0, -1.0, 40, 0, 0, 180],
+               [0.0, -1.0, 40, 0, 0, 200],
+               [0.0, -1.0, 40, 0, 0, 220],
+               [0.0, -1.0, 44, 0, 0, 120],
+               [0.0, -1.0, 44, 0, 0, 140],
+               [0.0, -1.0, 44, 0, 0, 160],
+               [0.0, -1.0, 44, 0, 0, 180],
+               [0.0, -1.0, 44, 0, 0, 200],
+               [0.0, -1.0, 48, 0, 0, 100],
+               [0.0, -1.0, 48, 0, 0, 120],
+               [0.0, -1.0, 48, 0, 0, 140],
+               [0.0, -1.0, 48, 0, 0, 160],
+               [0.0, -1.0, 48, 0, 0, 180],
+               [0.0, -1.0, 52, 0, 0, 100],
+               [0.0, -1.0, 52, 0, 0, 120],
+               [0.0, -1.0, 52, 0, 0, 140],
+               [0.0, -1.0, 52, 0, 0, 160]]
+        e64-k256:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # fp16 beam (AF_FP16_BEAM=1), no gates, explicit ef — HNSW-quality recall curve
+            - [[0.0, -1.0, 16, 0, 0, 32],
+               [0.0, -1.0, 16, 0, 0, 48],
+               [0.0, -1.0, 16, 0, 0, 64],
+               [0.0, -1.0, 16, 0, 0, 96],
+               [0.0, -1.0, 16, 0, 0, 128],
+               [0.0, -1.0, 16, 0, 0, 200],
+               [0.0, -1.0, 16, 0, 0, 400],
+               [0.0, -1.0, 16, 0, 0, 450],
+               [0.0, -1.0, 16, 0, 0, 500],
+               [0.0, -1.0, 16, 0, 0, 550],
+               [0.0, -1.0, 16, 0, 0, 600],
+               [0.0, -1.0, 20, 0, 0, 300],
+               [0.0, -1.0, 20, 0, 0, 400],
+               [0.0, -1.0, 20, 0, 0, 420],
+               [0.0, -1.0, 20, 0, 0, 440],
+               [0.0, -1.0, 20, 0, 0, 460],
+               [0.0, -1.0, 20, 0, 0, 480],
+               [0.0, -1.0, 20, 0, 0, 500],
+               [0.0, -1.0, 20, 0, 0, 600],
+               [0.0, -1.0, 24, 0, 0, 300],
+               [0.0, -1.0, 24, 0, 0, 400],
+               [0.0, -1.0, 24, 0, 0, 420],
+               [0.0, -1.0, 24, 0, 0, 440],
+               [0.0, -1.0, 24, 0, 0, 460],
+               [0.0, -1.0, 24, 0, 0, 480],
+               [0.0, -1.0, 24, 0, 0, 500],
+               [0.0, -1.0, 32, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 400],
+               [0.0, -1.0, 32, 0, 0, 420],
+               [0.0, -1.0, 32, 0, 0, 500],
+               [0.0, -1.0, 32, 0, 0, 600],
+               [0.40, 0.80, 16, 0, 2, 0],
+               [0.40, 0.80, 16, 0, 3, 0],
+               [0.40, 0.80, 16, 0, 4, 0],
+               [0.40, 0.80, 16, 0, 8, 0],
+               [0.40, 0.80, 32, 0, 8, 0]]
+        e64-k256-a14:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # High-recall index (alpha=1.4, 32 entry pts, 128 seeds) — targets recall>0.95
+            - [[0.0, -1.0, 16, 0, 0, 64],
+               [0.0, -1.0, 16, 0, 0, 128],
+               [0.0, -1.0, 16, 0, 0, 200],
+               [0.0, -1.0, 16, 0, 0, 300],
+               [0.0, -1.0, 16, 0, 0, 400],
+               [0.0, -1.0, 16, 0, 0, 480],
+               [0.0, -1.0, 20, 0, 0, 300],
+               [0.0, -1.0, 20, 0, 0, 400],
+               [0.0, -1.0, 20, 0, 0, 480],
+               [0.0, -1.0, 20, 0, 0, 600],
+               [0.0, -1.0, 24, 0, 0, 300],
+               [0.0, -1.0, 24, 0, 0, 400],
+               [0.0, -1.0, 24, 0, 0, 480],
+               [0.0, -1.0, 32, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 400],
+               [0.0, -1.0, 32, 0, 0, 600],
+               # nytimes-256 ScaNN超え: np=40 ef=500 → recall=0.9117@2402 vs ScaNN 0.9016@2239
+               [0.0, -1.0, 40, 0, 0, 400],
+               [0.0, -1.0, 40, 0, 0, 500],
+               [0.0, -1.0, 40, 0, 0, 600],
+               [0.0, -1.0, 48, 0, 0, 500],
+               [0.0, -1.0, 48, 0, 0, 600],
+               [0.0, -1.0, 64, 0, 0, 600],
+               [0.0, -1.0, 64, 0, 0, 800],
+               [0.0, -1.0, 96, 0, 0, 800],
+               [0.0, -1.0, 96, 0, 0, 1200],
+               [0.0, -1.0, 128, 0, 0, 1200],
+               [0.0, -1.0, 128, 0, 0, 1600]]
+    ArcFlare-A16:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a160-ep32:
+          args: [{'alpha': 1.6, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # alpha=1.6: denser graph → higher recall at same QPS
+            # Targeting recall>0.99 @ QPS>8000 (current best: 0.9877 @ 9128 with alpha=1.5)
+            - [[0.0, -1.0, 20, 0, 0, 200],
+               [0.0, -1.0, 20, 0, 0, 300],
+               [0.0, -1.0, 24, 0, 0, 160],
+               [0.0, -1.0, 24, 0, 0, 200],
+               [0.0, -1.0, 24, 0, 0, 240],
+               [0.0, -1.0, 28, 0, 0, 140],
+               [0.0, -1.0, 28, 0, 0, 160],
+               [0.0, -1.0, 28, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 160],
+               [0.0, -1.0, 32, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 260],
+               [0.0, -1.0, 36, 0, 0, 180],
+               [0.0, -1.0, 36, 0, 0, 220]]
+    ArcFlare-Pareto:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a150-v2-pareto:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # Fill Pareto frontier gaps — target recall>0.99 @ QPS>8000
+            # np=20: explore high-QPS end (estimated QPS=13K-20K)
+            # np=28,32 ef=160-200: bridge the gap between current Pareto points
+            - [[0.0, -1.0, 20, 0, 0, 80],
+               [0.0, -1.0, 20, 0, 0, 100],
+               [0.0, -1.0, 20, 0, 0, 120],
+               [0.0, -1.0, 20, 0, 0, 140],
+               [0.0, -1.0, 20, 0, 0, 160],
+               [0.0, -1.0, 28, 0, 0, 160],
+               [0.0, -1.0, 28, 0, 0, 180],
+               [0.0, -1.0, 28, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 180],
+               [0.0, -1.0, 32, 0, 0, 200],
+               [0.0, -1.0, 36, 0, 0, 140],
+               [0.0, -1.0, 36, 0, 0, 160]]
+        e64-k256-a150-ef230:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # recall>0.99 @ QPS>8000 confirmed: np=32, ef=230-242
+            - [[0.0, -1.0, 32, 0, 0, 228],
+               [0.0, -1.0, 32, 0, 0, 230],
+               [0.0, -1.0, 32, 0, 0, 232],
+               [0.0, -1.0, 32, 0, 0, 234],
+               [0.0, -1.0, 32, 0, 0, 236],
+               [0.0, -1.0, 32, 0, 0, 238],
+               [0.0, -1.0, 32, 0, 0, 240],
+               [0.0, -1.0, 32, 0, 0, 242]]
+    ArcFlare-Cap:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a150-v3-cap:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap]
+            # cap_cluster_members: score only nearest cap members per cluster
+            # nearest_n_fp16 gives truly-nearest clusters; cap allows higher n_probe at fraction of cost
+            # np=60 cap=200: 60×200=12K seeds vs np=36 no-cap: 36×3906=140K seeds (12× faster seeding)
+            # Target: recall>0.99 @ QPS>7315
+            - [[0.0, -1.0, 60, 0, 0, 120, 200],
+               [0.0, -1.0, 60, 0, 0, 140, 200],
+               [0.0, -1.0, 60, 0, 0, 160, 200],
+               [0.0, -1.0, 60, 0, 0, 180, 200],
+               [0.0, -1.0, 80, 0, 0, 100, 200],
+               [0.0, -1.0, 80, 0, 0, 120, 200],
+               [0.0, -1.0, 80, 0, 0, 140, 200],
+               [0.0, -1.0, 80, 0, 0, 160, 200],
+               [0.0, -1.0, 100, 0, 0, 80, 200],
+               [0.0, -1.0, 100, 0, 0, 100, 200],
+               [0.0, -1.0, 100, 0, 0, 120, 200],
+               [0.0, -1.0, 120, 0, 0, 80, 200],
+               [0.0, -1.0, 120, 0, 0, 100, 200],
+               [0.0, -1.0, 60, 0, 0, 160, 400],
+               [0.0, -1.0, 80, 0, 0, 120, 400],
+               [0.0, -1.0, 80, 0, 0, 140, 400]]
+    ArcFlare-A140:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a140-ep32-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, term_eps_fp16]
+            # PFAH=20 + re-prefetch + n_threads=80:
+            # GOAL confirmed: np=28 ef=350 eps=0.340 → recall=0.9906 @ QPS=9236
+            #                 np=28 ef=300 eps=0.345 → recall=0.9901 @ QPS=9196
+            # High recall (0.98-0.99+)
+            - [[0.0, -1.0, 28, 0, 0, 350, 0, 0.340],
+               [0.0, -1.0, 28, 0, 0, 300, 0, 0.345],
+               [0.0, -1.0, 28, 0, 0, 310, 0, 0.340],
+               [0.0, -1.0, 28, 0, 0, 300, 0, 0.350],
+               [0.0, -1.0, 28, 0, 0, 320, 0, 0.340],
+               [0.0, -1.0, 28, 0, 0, 290, 0, 0.360],
+               [0.0, -1.0, 28, 0, 0, 400, 0, -1.0],
+               [0.0, -1.0, 32, 0, 0, 350, 0, 0.340],
+               [0.0, -1.0, 32, 0, 0, 400, 0, -1.0],
+               [0.0, -1.0, 24, 0, 0, 260, 0, 0.340],
+               [0.0, -1.0, 24, 0, 0, 300, 0, 0.345],
+               [0.0, -1.0, 20, 0, 0, 220, 0, 0.340],
+               [0.0, -1.0, 20, 0, 0, 260, 0, 0.345],
+               # Mid recall (0.93-0.97) — np16-20
+               [0.0, -1.0, 20, 0, 0, 160, 0, 0.340],
+               [0.0, -1.0, 16, 0, 0, 120, 0, 0.340],
+               [0.0, -1.0, 16, 0, 0, 100, 0, 0.340],
+               [0.0, -1.0, 16, 0, 0, 80,  0, 0.340],
+               # Low recall (0.88-0.93) — np8-12: high QPS region
+               [0.0, -1.0, 12, 0, 0, 60,  0, 0.340],
+               [0.0, -1.0, 12, 0, 0, 40,  0, 0.340],
+               [0.0, -1.0,  8, 0, 0, 40,  0, 0.340],
+               [0.0, -1.0,  8, 0, 0, 24,  0, 0.340],
+               [0.0, -1.0,  8, 0, 0, 20,  0, 0.340],
+               [0.0, -1.0,  4, 0, 0, 20,  0, 0.340],
+               [0.0, -1.0,  4, 0, 0, 14,  0, 0.340]]
     sptag:
       docker-tag: ann-benchmarks-sptag
       module: ann_benchmarks.algorithms.sptag
@@ -360,6 +667,21 @@ float:
                           [3.0, 0.90], [3.0, 0.95], [3.0, 0.98], [3.0, 1.00], [3.0, 1.02],
                           [  5, 1.00], [ 10, 1.00], [ 20, 1.00],
                           [  2, 1.04], [  3, 1.04], [  5, 1.04], [  8, 1.04]]]
+    Glass:
+      docker-tag: ann-benchmarks-glass
+      module: ann_benchmarks.algorithms.glass
+      constructor: Glass
+      base-args: ["@metric"]
+      run-groups:
+        M-16:
+          args: [{'M': 16, 'ef_construction': 200}]
+          query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
+        M-32:
+          args: [{'M': 32, 'ef_construction': 200}]
+          query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
+        M-48:
+          args: [{'M': 48, 'ef_construction': 200}]
+          query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
     mrpt:
       docker-tag: ann-benchmarks-mrpt
       module: ann_benchmarks.algorithms.mrpt
@@ -382,6 +704,67 @@ float:
           args: []
 
   euclidean:
+    ArcFlare-A140-L2-K1024:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-l2-k1024-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef] — SIFT-128 K=1024 Pareto sweep
+            # K=1024 → cluster_size=~1000 (4x fewer than K=256) → 4x faster seeding
+            # Validated (80T warm): np=1 ef=20 → 0.7240@103575, np=2 ef=20 → 0.8003@72208
+            #                        np=4 ef=20 → 0.8642@53196, np=4 ef=50 → 0.9137@38402
+            - [[0.0, -1.0,  1, 0, 0,  10],
+               [0.0, -1.0,  1, 0, 0,  20],
+               [0.0, -1.0,  2, 0, 0,  10],
+               [0.0, -1.0,  2, 0, 0,  20],
+               [0.0, -1.0,  2, 0, 0,  50],
+               [0.0, -1.0,  4, 0, 0,  20],
+               [0.0, -1.0,  4, 0, 0,  50],
+               [0.0, -1.0,  8, 0, 0,  20],
+               [0.0, -1.0,  8, 0, 0,  50],
+               [0.0, -1.0,  8, 0, 0, 100],
+               [0.0, -1.0, 16, 0, 0,  50],
+               [0.0, -1.0, 16, 0, 0, 100],
+               [0.0, -1.0, 16, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 100],
+               [0.0, -1.0, 32, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 400],
+               [0.0, -1.0, 64, 0, 0, 200],
+               [0.0, -1.0, 64, 0, 0, 400],
+               [0.0, -1.0, 128, 0, 0, 400],
+               [0.0, -1.0, 128, 0, 0, 800],
+               [0.0, -1.0, 256, 0, 0, 800]]
+    ArcFlare-A140-L2:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-l2-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # SIFT-128 validated Pareto (80T warm):
+            # recall=0.93@24707, 0.98@13106, 0.9954@5736, 0.9991@2677
+            - [[0.0, -1.0,  4, 0, 0,  50],
+               [0.0, -1.0,  8, 0, 0,  50],
+               [0.0, -1.0,  8, 0, 0, 100],
+               [0.0, -1.0, 16, 0, 0, 100],
+               [0.0, -1.0, 16, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 100],
+               [0.0, -1.0, 32, 0, 0, 200],
+               [0.0, -1.0, 32, 0, 0, 400],
+               [0.0, -1.0, 64, 0, 0, 200],
+               [0.0, -1.0, 64, 0, 0, 400],
+               [0.0, -1.0, 64, 0, 0, 800],
+               [0.0, -1.0, 128, 0, 0, 400],
+               [0.0, -1.0, 128, 0, 0, 800],
+               [0.0, -1.0, 256, 0, 0, 800],
+               [0.0, -1.0, 256, 0, 0, 1600]]
     vamana(diskann):
       docker-tag: ann-benchmarks-diskann
       module: ann_benchmarks.algorithms.diskann
@@ -664,6 +1047,90 @@ float:
           query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
 
   angular:
+    ArcFlare-A140-Ang-K1024:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-ang-k1024-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # K=1024 multi-tier rebuild — GloVe-100 validated Pareto front (80T warm):
+            # recall=0.7751@39926, 0.8145@29611, 0.8413@21337, 0.9008@8873, 0.9394@5040, 0.9882@1061
+            - [[0.0, -1.0,   1, 0, 0,  10],
+               [0.0, -1.0,   1, 0, 0,  20],
+               [0.0, -1.0,   2, 0, 0,  20],
+               [0.0, -1.0,   2, 0, 0,  50],
+               [0.0, -1.0,   4, 0, 0,  20],
+               [0.0, -1.0,   4, 0, 0,  50],
+               [0.0, -1.0,   8, 0, 0,  20],
+               [0.0, -1.0,   8, 0, 0,  50],
+               [0.0, -1.0,   8, 0, 0, 100],
+               [0.0, -1.0,  16, 0, 0,  50],
+               [0.0, -1.0,  16, 0, 0, 100],
+               [0.0, -1.0,  32, 0, 0,  50],
+               [0.0, -1.0,  32, 0, 0, 100],
+               [0.0, -1.0,  32, 0, 0, 200],
+               [0.0, -1.0,  64, 0, 0, 100],
+               [0.0, -1.0,  64, 0, 0, 200],
+               [0.0, -1.0,  64, 0, 0, 400],
+               [0.0, -1.0, 128, 0, 0, 200],
+               [0.0, -1.0, 128, 0, 0, 400],
+               [0.0, -1.0, 128, 0, 0, 800],
+               [0.0, -1.0, 256, 0, 0, 400],
+               [0.0, -1.0, 256, 0, 0, 800],
+               [0.0, -1.0, 256, 0, 0, 1600]]
+        a140-ang-k1024-pe50:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, term_eps_fp16, rerank_sq8, pool_extra]
+            # pool_extra=50: extra beam pool slots flushed to results before reranking.
+            # Improves recall ~2% at ef=20-50, ~1% at ef=100 with negligible QPS cost.
+            # Most effective in mid-recall range (0.80-0.93) to fill Pareto gaps.
+            - [[0.0, -1.0,   2, 0, 0,  20, 0, -1.0, 0, 50],
+               [0.0, -1.0,   4, 0, 0,  20, 0, -1.0, 0, 50],
+               [0.0, -1.0,   4, 0, 0,  50, 0, -1.0, 0, 50],
+               [0.0, -1.0,   8, 0, 0,  20, 0, -1.0, 0, 50],
+               [0.0, -1.0,   8, 0, 0,  50, 0, -1.0, 0, 50],
+               [0.0, -1.0,  16, 0, 0,  50, 0, -1.0, 0, 50],
+               [0.0, -1.0,  16, 0, 0, 100, 0, -1.0, 0, 50],
+               [0.0, -1.0,  32, 0, 0,  50, 0, -1.0, 0, 50],
+               [0.0, -1.0,  32, 0, 0, 100, 0, -1.0, 0, 50],
+               [0.0, -1.0,  64, 0, 0, 100, 0, -1.0, 0, 50],
+               [0.0, -1.0,  64, 0, 0, 200, 0, -1.0, 0, 50],
+               [0.0, -1.0, 128, 0, 0, 200, 0, -1.0, 0, 50],
+               [0.0, -1.0, 128, 0, 0, 400, 0, -1.0, 0, 50]]
+    ArcFlare-A140-Ang:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-ang-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # Full Pareto sweep based on benchmarks: low recall (high QPS) → high recall
+            - [[0.0, -1.0,   4, 0, 0,  50],
+               [0.0, -1.0,   8, 0, 0,  50],
+               [0.0, -1.0,   8, 0, 0, 100],
+               [0.0, -1.0,  16, 0, 0, 100],
+               [0.0, -1.0,  16, 0, 0, 200],
+               [0.0, -1.0,  32, 0, 0, 100],
+               [0.0, -1.0,  32, 0, 0, 200],
+               [0.0, -1.0,  32, 0, 0, 400],
+               [0.0, -1.0,  64, 0, 0, 200],
+               [0.0, -1.0,  64, 0, 0, 400],
+               [0.0, -1.0,  64, 0, 0, 800],
+               [0.0, -1.0, 128, 0, 0, 400],
+               [0.0, -1.0, 128, 0, 0, 800],
+               [0.0, -1.0, 128, 0, 0, 1600],
+               [0.0, -1.0, 128, 0, 0, 3200],
+               [0.0, -1.0, 256, 0, 0, 800],
+               [0.0, -1.0, 256, 0, 0, 1600],
+               [0.0, -1.0, 256, 0, 0, 3200]]
     vamana(diskann):
       docker-tag: ann-benchmarks-diskann
       module: ann_benchmarks.algorithms.diskann
