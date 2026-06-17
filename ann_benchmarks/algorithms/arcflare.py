@@ -21,6 +21,9 @@ class ArcFlare(BaseANN):
         self._n_entry_pts = int(params.get('n_entry_points',      8))
         self._n_seeds     = int(params.get('n_cluster_seeds',    32))
         self._reorder     = str(params.get('reorder',        'gorder'))
+        self._soar        = bool(params.get('soar',           False))
+        self._rebuild     = bool(params.get('rebuild',        False))
+        self._routing_pq_m = int(params.get('routing_pq_m',    0))  # 0 = default (auto)
         # Query-time defaults
         self._gamma_enq           = 0.20
         self._gamma_term          = 0.40
@@ -43,7 +46,7 @@ class ArcFlare(BaseANN):
         # sys.path entries, so a normal 'import arcflare_ext' always picks the
         # dist-packages copy.  Use spec_from_file_location to force-load the freshly
         # built .so from the build directory regardless of installed metadata.
-        _BUILD = '/home/kpango/go/src/github.com/vdaas/ArcFlare/build/python_sdk'
+        _BUILD = '/home/kpango/go/src/github.com/vdaas/ArcFlare/build/python_sdk' + ('_soar' if self._soar else '')
         _loaded = _sys.modules.get('arcflare_ext')
         if _loaded is None or not getattr(_loaded, '__file__', '').startswith(_BUILD):
             _sos = sorted(_glob.glob(_BUILD + '/arcflare_ext*.so'))
@@ -56,10 +59,14 @@ class ArcFlare(BaseANN):
 
         n, d = X.shape
         angular = self._metric == 'angular'
-        tag = 'arcflare-D{}-M{}-K{}-a{:.2f}-ep{}-cs{}-{}-{}'.format(
+        tag = 'arcflare-D{}-M{}-K{}-a{:.2f}-ep{}-cs{}-{}{}-{}{}{}'.format(
             d, self._max_edges, self._k_clusters, self._alpha,
             self._n_entry_pts, self._n_seeds,
-            self._reorder, 'ang' if angular else 'l2')
+            self._reorder,
+            '-rebuild' if self._rebuild else '',
+            'ang' if angular else 'l2',
+            '-soar' if self._soar else '',
+            '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '')
         index_dir = os.path.join(INDEX_DIR, tag)
 
         self._index = arcflare_ext.ArcFlare(
@@ -93,6 +100,9 @@ class ArcFlare(BaseANN):
             self._index.build_multi_tier(n_threads=n_threads)
             print('ArcFlare: reordering for cache locality (%s)...' % self._reorder)
             self._index.reorder_locality(self._reorder)
+            if self._routing_pq_m > 0:
+                print('ArcFlare: rebuilding RoutingPQ (m=%d)...' % self._routing_pq_m)
+                self._index.rebuild_routing_pq(self._routing_pq_m)
             os.makedirs(index_dir, exist_ok=True)
             self._index.save(index_dir)
             print('ArcFlare: index saved to', index_dir)
