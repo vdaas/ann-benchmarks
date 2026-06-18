@@ -430,7 +430,7 @@ float:
           args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'routing_pq_m': 128}]
           query-args:
             # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
-            # GIST-960 best: np=60 ef=100 ncs=192 → rc=0.9703 @ QPS=644 (0.68x Glass)
+            # GIST-960 best: np=64 ef=120 ncs=192 → rc=0.9705 @ QPS=788 (0.83x Glass) [cluster_local_batch]
             # All configs at rc>=0.970 with highest QPS sorted descending
             - [[0.0, -1.0, 48, 0, 0, 100, 0, -1.0, 0, 0, 0, 128],
                [0.0, -1.0, 52, 0, 0, 100, 0, -1.0, 0, 0, 0, 160],
