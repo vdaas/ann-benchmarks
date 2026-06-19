@@ -26,6 +26,8 @@ class ArcFlare(BaseANN):
         self._routing_pq_m = int(params.get('routing_pq_m',    0))  # 0 = default (auto)
         # sq8_beam: use AF_SQ8=ON, AF_FP16_BEAM=OFF build (SQ8 int8 beam, 2x memory bandwidth vs fp16)
         self._sq8_beam    = bool(params.get('sq8_beam',       False))
+        # sq4_beam: use AF_SQ4=ON, AF_SQ8=ON, AF_FP16_BEAM=OFF build (~4x smaller beam footprint)
+        self._sq4_beam    = bool(params.get('sq4_beam',       False))
         # Query-time defaults
         self._gamma_enq           = 0.20
         self._gamma_term          = 0.40
@@ -55,6 +57,8 @@ class ArcFlare(BaseANN):
         _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
         if self._soar:
             _BUILD = _MAIN + '/build/python_sdk_soar'
+        elif self._sq4_beam:
+            _BUILD = _WORKTREE + '/build/python_sdk_sq4'
         elif self._sq8_beam:
             _BUILD = _WORKTREE + '/build/python_sdk_fp32_sq8'
         else:
@@ -71,14 +75,15 @@ class ArcFlare(BaseANN):
 
         n, d = X.shape
         angular = self._metric == 'angular'
-        tag = 'arcflare-D{}-M{}-K{}-a{:.2f}-ep{}-cs{}-{}{}-{}{}{}'.format(
+        tag = 'arcflare-D{}-M{}-K{}-a{:.2f}-ep{}-cs{}-{}{}-{}{}{}{}'.format(
             d, self._max_edges, self._k_clusters, self._alpha,
             self._n_entry_pts, self._n_seeds,
             self._reorder,
             '-rebuild' if self._rebuild else '',
             'ang' if angular else 'l2',
             '-soar' if self._soar else '',
-            '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '')
+            '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '',
+            '-sq4' if self._sq4_beam else '')
         index_dir = os.path.join(INDEX_DIR, tag)
 
         self._index = arcflare_ext.ArcFlare(
