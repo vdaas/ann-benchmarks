@@ -46,7 +46,11 @@ class ArcFlare(BaseANN):
         # sys.path entries, so a normal 'import arcflare_ext' always picks the
         # dist-packages copy.  Use spec_from_file_location to force-load the freshly
         # built .so from the build directory regardless of installed metadata.
-        _BUILD = '/home/kpango/go/src/github.com/vdaas/ArcFlare/build/python_sdk' + ('_soar' if self._soar else '')
+        # worktree fp16: AF_FP16_BEAM=ON + AF_SQ8=ON + adaptive_probe_ratio (latest commits)
+        # main soar: AF_SOAR=ON + AF_SQ8=ON (soar not yet in worktree build)
+        _WORKTREE = '/home/kpango/go/src/github.com/vdaas/ArcFlare/.claude/worktrees/routing-pq-improve'
+        _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
+        _BUILD = (_MAIN + '/build/python_sdk_soar') if self._soar else (_WORKTREE + '/build/python_sdk_fp16')
         _loaded = _sys.modules.get('arcflare_ext')
         if _loaded is None or not getattr(_loaded, '__file__', '').startswith(_BUILD):
             _sos = sorted(_glob.glob(_BUILD + '/arcflare_ext*.so'))
