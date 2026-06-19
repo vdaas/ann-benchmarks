@@ -57,12 +57,12 @@ class Glass(BaseANN):
         cache_path = self._graph_cache_path(n, d)
         if os.path.exists(cache_path):
             print('Glass: loading cached graph from %s' % cache_path)
-            self._graph = glass.Graph.load(cache_path)
+            self._graph = glass.Graph(cache_path)
         else:
             legacy = self._find_legacy_graph(d)
             if legacy:
                 print('Glass: loading legacy graph from %s' % legacy)
-                self._graph = glass.Graph.load(legacy)
+                self._graph = glass.Graph(legacy)
             else:
                 print('Glass: building  N=%d D=%d M=%d ef_con=%d metric=%s' % (
                     n, d, self._M, self._ef_con, self._metric))
