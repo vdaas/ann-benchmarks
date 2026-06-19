@@ -24,6 +24,8 @@ class ArcFlare(BaseANN):
         self._soar        = bool(params.get('soar',           False))
         self._rebuild     = bool(params.get('rebuild',        False))
         self._routing_pq_m = int(params.get('routing_pq_m',    0))  # 0 = default (auto)
+        # sq8_beam: use AF_SQ8=ON, AF_FP16_BEAM=OFF build (SQ8 int8 beam, 2x memory bandwidth vs fp16)
+        self._sq8_beam    = bool(params.get('sq8_beam',       False))
         # Query-time defaults
         self._gamma_enq           = 0.20
         self._gamma_term          = 0.40
@@ -46,11 +48,17 @@ class ArcFlare(BaseANN):
         # sys.path entries, so a normal 'import arcflare_ext' always picks the
         # dist-packages copy.  Use spec_from_file_location to force-load the freshly
         # built .so from the build directory regardless of installed metadata.
-        # worktree fp16: AF_FP16_BEAM=ON + AF_SQ8=ON + adaptive_probe_ratio (latest commits)
-        # main soar: AF_SOAR=ON + AF_SQ8=ON (soar not yet in worktree build)
+        # worktree fp16:     AF_FP16_BEAM=ON + AF_SQ8=ON (default for L2 and angular fp16 beam)
+        # worktree fp32_sq8: AF_FP16_BEAM=OFF + AF_SQ8=ON (SQ8 int8 beam; 2x bandwidth vs fp16)
+        # main soar:         AF_SOAR=ON + AF_SQ8=ON (soar not yet in worktree build)
         _WORKTREE = '/home/kpango/go/src/github.com/vdaas/ArcFlare/.claude/worktrees/routing-pq-improve'
         _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
-        _BUILD = (_MAIN + '/build/python_sdk_soar') if self._soar else (_WORKTREE + '/build/python_sdk_fp16')
+        if self._soar:
+            _BUILD = _MAIN + '/build/python_sdk_soar'
+        elif self._sq8_beam:
+            _BUILD = _WORKTREE + '/build/python_sdk_fp32_sq8'
+        else:
+            _BUILD = _WORKTREE + '/build/python_sdk_fp16'
         _loaded = _sys.modules.get('arcflare_ext')
         if _loaded is None or not getattr(_loaded, '__file__', '').startswith(_BUILD):
             _sos = sorted(_glob.glob(_BUILD + '/arcflare_ext*.so'))
