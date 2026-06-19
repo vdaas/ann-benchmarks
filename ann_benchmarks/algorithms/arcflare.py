@@ -123,51 +123,55 @@ class ArcFlare(BaseANN):
         self._rerank_sq8          = int(params[8])  if len(params) > 8  else 0
         self._pool_extra          = int(params[9])  if len(params) > 9  else 0
         self._angular_expand_n    = int(params[10]) if len(params) > 10 else 0
-        self._n_cluster_seeds_s   = int(params[11]) if len(params) > 11 else 0
+        self._n_cluster_seeds_s      = int(params[11])   if len(params) > 11 else 0
+        self._adaptive_probe_ratio   = float(params[12]) if len(params) > 12 else 0.0
         cap_str = ',cap={}'.format(self._cap_cluster_members) if self._cap_cluster_members > 0 else ''
         eps_str = ',eps={:.3f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else ''
         rr8_str = ',rr8={}'.format(self._rerank_sq8) if self._rerank_sq8 > 0 else ''
         pe_str  = ',pe={}'.format(self._pool_extra) if self._pool_extra > 0 else ''
         en_str  = ',en={}'.format(self._angular_expand_n) if self._angular_expand_n > 0 else ''
-        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{})'.format(
+        apr_str = ',apr={:.1f}'.format(self._adaptive_probe_ratio) if self._adaptive_probe_ratio > 0 else ''
+        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{})'.format(
             self._gamma_enq, self._gamma_term, self._n_probe,
             self._max_visits, self._rerank_factor, self._ef,
-            cap_str, eps_str, rr8_str, pe_str, en_str)
+            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str)
 
     def query(self, v, n):
         return self._index.search(
             np.asarray(v, dtype=np.float32),
             n,
-            gamma_enq           = float(self._gamma_enq),
-            gamma_term          = float(self._gamma_term),
-            n_probe             = int(self._n_probe),
-            max_visits          = int(self._max_visits),
-            rerank_factor       = int(self._rerank_factor),
-            ef                  = int(self._ef),
-            cap_cluster_members = int(self._cap_cluster_members),
-            term_eps_fp16       = float(self._term_eps_fp16),
-            pool_extra          = int(self._pool_extra),
-            angular_expand_n    = int(self._angular_expand_n),
-            n_cluster_seeds     = int(self._n_cluster_seeds_s),
+            gamma_enq             = float(self._gamma_enq),
+            gamma_term            = float(self._gamma_term),
+            n_probe               = int(self._n_probe),
+            max_visits            = int(self._max_visits),
+            rerank_factor         = int(self._rerank_factor),
+            ef                    = int(self._ef),
+            cap_cluster_members   = int(self._cap_cluster_members),
+            term_eps_fp16         = float(self._term_eps_fp16),
+            pool_extra            = int(self._pool_extra),
+            angular_expand_n      = int(self._angular_expand_n),
+            n_cluster_seeds       = int(self._n_cluster_seeds_s),
+            adaptive_probe_ratio  = float(self._adaptive_probe_ratio),
         )
 
     def batch_query(self, X, n):
         self._res = self._index.search_batch(
             np.ascontiguousarray(X, dtype=np.float32),
             n,
-            gamma_enq           = float(self._gamma_enq),
-            gamma_term          = float(self._gamma_term),
-            n_probe             = int(self._n_probe),
-            max_visits          = int(self._max_visits),
-            rerank_factor       = int(self._rerank_factor),
-            n_threads           = 80,
-            ef                  = int(self._ef),
-            cap_cluster_members = int(self._cap_cluster_members),
-            term_eps_fp16       = float(self._term_eps_fp16),
-            rerank_sq8          = int(self._rerank_sq8),
-            pool_extra          = int(self._pool_extra),
-            angular_expand_n    = int(self._angular_expand_n),
-            n_cluster_seeds     = int(self._n_cluster_seeds_s),
+            gamma_enq             = float(self._gamma_enq),
+            gamma_term            = float(self._gamma_term),
+            n_probe               = int(self._n_probe),
+            max_visits            = int(self._max_visits),
+            rerank_factor         = int(self._rerank_factor),
+            n_threads             = 80,
+            ef                    = int(self._ef),
+            cap_cluster_members   = int(self._cap_cluster_members),
+            term_eps_fp16         = float(self._term_eps_fp16),
+            rerank_sq8            = int(self._rerank_sq8),
+            pool_extra            = int(self._pool_extra),
+            angular_expand_n      = int(self._angular_expand_n),
+            n_cluster_seeds       = int(self._n_cluster_seeds_s),
+            adaptive_probe_ratio  = float(self._adaptive_probe_ratio),
         )
 
     def get_batch_results(self):
