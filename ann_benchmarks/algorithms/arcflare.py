@@ -32,6 +32,8 @@ class ArcFlare(BaseANN):
         self._sq2_beam    = bool(params.get('sq2_beam',       False))
         # bapq: variance-sorted RoutingPQ subspace assignment (AF_BAPQ=ON)
         self._bapq        = bool(params.get('bapq',           False))
+        # saq: per-subspace OPQ/PCA rotation for RoutingPQ (AF_SAQ=ON + AF_SQ8=ON + AF_SOAR=ON)
+        self._saq         = bool(params.get('saq',            False))
         # Query-time defaults
         self._gamma_enq           = 0.20
         self._gamma_term          = 0.40
@@ -61,6 +63,8 @@ class ArcFlare(BaseANN):
         _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
         if self._soar:
             _BUILD = _MAIN + '/build/python_sdk_soar'
+        elif self._saq:
+            _BUILD = _WORKTREE + '/build_soar_saq'
         elif self._bapq:
             _BUILD = _WORKTREE + '/build/python_sdk_bapq'
         elif self._sq2_beam:
@@ -91,7 +95,7 @@ class ArcFlare(BaseANN):
             'ang' if angular else 'l2',
             '-soar' if self._soar else '',
             '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '',
-            '-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4' if self._sq4_beam else '')))
+            '-saq' if self._saq else ('-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4' if self._sq4_beam else ''))))
         index_dir = os.path.join(INDEX_DIR, tag)
 
         self._index = arcflare_ext.ArcFlare(
