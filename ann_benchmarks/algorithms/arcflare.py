@@ -148,98 +148,59 @@ class ArcFlare(BaseANN):
             print('ArcFlare: index saved to', index_dir)
 
     def set_query_arguments(self, *args):
-        # runner.py calls set_query_arguments(*query_arguments).
-        # query_arguments comes from algos.yaml query-args via _generate_combinations.
-        # Depending on nesting, args may be a flat 5-tuple or a 1-tuple whose element is a list.
+        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto]
+        #   np    - n_probe: cluster probes (required)
+        #   ef    - beam size (required)
+        #   ncs   - n_cluster_seeds: seeds per probe (default 128)
+        #   psm   - presort_seed_mult: RPQ-ranked seed cap before fp16 rescore (default 24)
+        #   crinn - crinn_no_improve_limit: 0 means C++ auto (ef*2/3) (default 0)
+        #   rpqgm - beam_rpq_gate_margin: -1 = off, auto = 0.3 (ef<80) / 0.2 (ef>=80)
+        #   eps   - term_eps_fp16: -1 = off, auto = 0.3 (ef<80, lossless) / -1 (ef>=80)
         if len(args) == 1 and isinstance(args[0], (list, tuple)):
             params = list(args[0])
         else:
             params = list(args)
-        self._gamma_enq, self._gamma_term, self._n_probe, \
-            self._max_visits, self._rerank_factor = params[:5]
-        self._ef                  = int(params[5]) if len(params) > 5 else 0
-        self._cap_cluster_members = int(params[6]) if len(params) > 6 else 0
-        self._term_eps_fp16       = float(params[7]) if len(params) > 7 else -1.0
-        self._rerank_sq8          = int(params[8])  if len(params) > 8  else 0
-        self._pool_extra          = int(params[9])  if len(params) > 9  else 0
-        self._angular_expand_n    = int(params[10]) if len(params) > 10 else 0
-        self._n_cluster_seeds_s      = int(params[11])   if len(params) > 11 else 0
-        self._adaptive_probe_ratio   = float(params[12]) if len(params) > 12 else 0.0
-        self._adaptive_ef_threshold  = float(params[13]) if len(params) > 13 else -1.0
-        self._adaptive_ef_extended   = int(params[14])   if len(params) > 14 else 0
-        self._presort_seed_mult      = int(params[15])   if len(params) > 15 else 0
-        self._term_eps               = float(params[16]) if len(params) > 16 else -1.0
-        self._crinn_no_improve_limit = int(params[17])   if len(params) > 17 else 0
-        self._beam_rpq_filter_k      = int(params[18])   if len(params) > 18 else 0
-        self._beam_rpq_gate_margin   = float(params[19]) if len(params) > 19 else -1.0
-        cap_str = ',cap={}'.format(self._cap_cluster_members) if self._cap_cluster_members > 0 else ''
-        eps_str = ',eps={:.3f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else ''
-        rr8_str = ',rr8={}'.format(self._rerank_sq8) if self._rerank_sq8 > 0 else ''
-        pe_str  = ',pe={}'.format(self._pool_extra) if self._pool_extra > 0 else ''
-        en_str  = ',en={}'.format(self._angular_expand_n) if self._angular_expand_n > 0 else ''
-        apr_str = ',apr={:.1f}'.format(self._adaptive_probe_ratio) if self._adaptive_probe_ratio > 0 else ''
-        aef_str = ',aef={:.0f}:{}'.format(self._adaptive_ef_threshold, self._adaptive_ef_extended) \
-                  if self._adaptive_ef_threshold >= 0.0 and self._adaptive_ef_extended > 0 else ''
-        psm_str    = ',psm={}'.format(self._presort_seed_mult) if self._presort_seed_mult > 0 else ''
-        te_str     = ',te={:.2f}'.format(self._term_eps) if self._term_eps >= 0 else ''
-        crinn_str  = ',crinn={}'.format(self._crinn_no_improve_limit) if self._crinn_no_improve_limit > 0 else ''
-        brpqk_str  = ',brpqk={}'.format(self._beam_rpq_filter_k) if self._beam_rpq_filter_k > 0 else ''
-        rpqgm_str  = ',rpqgm={:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else ''
-        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{}{}{}{}{}{}{})'.format(
-            self._gamma_enq, self._gamma_term, self._n_probe,
-            self._max_visits, self._rerank_factor, self._ef,
-            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str, aef_str, psm_str, te_str, crinn_str, brpqk_str, rpqgm_str)
+        self._n_probe = int(params[0])
+        self._ef      = int(params[1])
+        self._n_cluster_seeds_s      = int(params[2])   if len(params) > 2 else 128
+        self._presort_seed_mult      = int(params[3])   if len(params) > 3 else 24
+        self._crinn_no_improve_limit = int(params[4])   if len(params) > 4 else 0
+        self._beam_rpq_gate_margin   = float(params[5]) if len(params) > 5 \
+                                       else (0.3 if self._ef < 80 else 0.2)
+        self._term_eps_fp16          = float(params[6]) if len(params) > 6 \
+                                       else (0.3 if self._ef < 80 else -1.0)
+        crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
+        rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
+        eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
+        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={})'.format(
+            self._n_probe, self._ef, self._n_cluster_seeds_s,
+            self._presort_seed_mult, crinn_disp, rpqgm_disp, eps_disp)
 
     def query(self, v, n):
         return self._index.search(
             np.asarray(v, dtype=np.float32),
             n,
-            gamma_enq             = float(self._gamma_enq),
-            gamma_term            = float(self._gamma_term),
-            n_probe               = int(self._n_probe),
-            max_visits            = int(self._max_visits),
-            rerank_factor         = int(self._rerank_factor),
-            ef                    = int(self._ef),
-            cap_cluster_members   = int(self._cap_cluster_members),
-            term_eps_fp16         = float(self._term_eps_fp16),
-            pool_extra            = int(self._pool_extra),
-            angular_expand_n      = int(self._angular_expand_n),
-            n_cluster_seeds       = int(self._n_cluster_seeds_s),
-            adaptive_probe_ratio  = float(self._adaptive_probe_ratio),
-            adaptive_ef_threshold = float(self._adaptive_ef_threshold),
-            adaptive_ef_extended  = int(self._adaptive_ef_extended),
+            n_probe                  = int(self._n_probe),
+            ef                       = int(self._ef),
+            n_cluster_seeds          = int(self._n_cluster_seeds_s),
             presort_seed_mult        = int(self._presort_seed_mult),
-            term_eps                 = float(self._term_eps),
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
-            beam_rpq_filter_k        = int(self._beam_rpq_filter_k),
             beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
+            term_eps_fp16            = float(self._term_eps_fp16),
         )
 
     def batch_query(self, X, n):
         self._res = self._index.search_batch(
             np.ascontiguousarray(X, dtype=np.float32),
             n,
-            gamma_enq             = float(self._gamma_enq),
-            gamma_term            = float(self._gamma_term),
-            n_probe               = int(self._n_probe),
-            max_visits            = int(self._max_visits),
-            rerank_factor         = int(self._rerank_factor),
-            n_threads             = 80,
-            ef                    = int(self._ef),
-            cap_cluster_members   = int(self._cap_cluster_members),
-            term_eps_fp16         = float(self._term_eps_fp16),
-            rerank_sq8            = int(self._rerank_sq8),
-            pool_extra            = int(self._pool_extra),
-            angular_expand_n      = int(self._angular_expand_n),
-            n_cluster_seeds       = int(self._n_cluster_seeds_s),
-            adaptive_probe_ratio  = float(self._adaptive_probe_ratio),
-            adaptive_ef_threshold = float(self._adaptive_ef_threshold),
-            adaptive_ef_extended  = int(self._adaptive_ef_extended),
+            n_threads                = 80,
+            n_probe                  = int(self._n_probe),
+            ef                       = int(self._ef),
+            n_cluster_seeds          = int(self._n_cluster_seeds_s),
             presort_seed_mult        = int(self._presort_seed_mult),
-            term_eps                 = float(self._term_eps),
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
-            beam_rpq_filter_k        = int(self._beam_rpq_filter_k),
             beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
+            term_eps_fp16            = float(self._term_eps_fp16),
         )
 
     def get_batch_results(self):
