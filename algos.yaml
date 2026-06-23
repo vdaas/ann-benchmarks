@@ -371,6 +371,11 @@ float:
             #     np=24 ef=60  psm=24 crinn=24: rpqgm=0.2 → +7.5% QPS, -0.85% RC  (recall=0.9436, <0.95)
             #     np=32 ef=80  psm=24 crinn=32: rpqgm=0.2 → +4.0% QPS, -0.95% RC  (recall=0.9620)
             #     np=32 ef=80  psm=24 crinn=32: rpqgm=0.15→ +5.4% QPS, -1.07% RC  (recall=0.9608) ← ef=80 best QPS
+            # term_eps_fp16 (eps=params[7]) + rpqgm sweep (11 reps, n_threads=8):
+            #   np=24 ef=60  psm=24 crinn=24 rpqgm=0.3: eps=0.30 → +3.9% QPS, recall=0.9456 (lossless) ← ef=60 best QPS
+            #   np=32 ef=80  psm=24 crinn=32 rpqgm=0.15: eps all → ±2% noise (no benefit)
+            #   np=48 ef=128 psm=24 crinn=80 rpqgm=0.2: eps=0.30~0.15 → -1.7~-2.9% QPS (overhead > skip benefit)
+            #   np=48 ef=128 psm=24 crinn=80 rpqgm=0.2: eps=0.05 → +10.9% QPS, recall=0.9754 ← high QPS, lower recall
             - [[0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0],
                [0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0,  0],
                [0.0, -1.0, 20, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0],
@@ -415,7 +420,11 @@ float:
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.5],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.3],
                # rpqgm=0.2 for ef=128: psm=24 crinn=80 → +5.9% QPS at recall=0.9806 (Δ=-0.96% vs baseline)
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.2]]
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.2],
+               # te_fp16 eps=0.30 + rpqgm=0.3 for ef=60: +3.9% QPS at recall=0.9456 (lossless vs rpqgm base)
+               [0.0, -1.0, 24, 0, 0,  60, 0, 0.30, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.3],
+               # te_fp16 eps=0.05 + rpqgm=0.2 for ef=128: +10.9% QPS at recall=0.9754 (Δ=-0.52% vs rpqgm base)
+               [0.0, -1.0, 48, 0, 0, 128, 0, 0.05, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.2]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
