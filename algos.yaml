@@ -331,8 +331,9 @@ float:
           args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128}]
           query-args:
             # M=128 rebuild+rpq128 GIST-960. Three-stage beam acceleration (no SOAR on this index):
+            #   eps   (params[7]):  term_eps_fp16 — stop beam when fp16 exact dist > (1+eps)*dk_fp16 (-1=off).
             #   psm   (params[15]): presort_seed_mult — pre-filter primary seeds by RPQ score before fp16 rescore.
-            #   te    (params[16]): term_eps — stop beam when frontier dist > (1+te)*d_k (exact fp16 gate).
+            #   te    (params[16]): term_eps — stop beam when frontier RPQ dist > (1+te)*d_k (-1=off).
             #   crinn (params[17]): crinn_no_improve_limit — max CRINN stagnation iters (default ef*3/4).
             # Key insight: ncs=128 is near-optimal across all ef regimes; psm+crinn are additive speedups.
             #   ncs sweep (15 reps, n_threads=8): ncs=128 beats ncs=96/160/256/320 for ef=60 with psm+crinn.
