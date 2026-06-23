@@ -51,6 +51,7 @@ class ArcFlare(BaseANN):
         self._adaptive_ef_threshold = -1.0
         self._adaptive_ef_extended  = 0
         self._presort_seed_mult     = 0
+        self._term_eps              = -1.0
         self.name = 'ArcFlare'
 
     def fit(self, X):
@@ -164,6 +165,7 @@ class ArcFlare(BaseANN):
         self._adaptive_ef_threshold  = float(params[13]) if len(params) > 13 else -1.0
         self._adaptive_ef_extended   = int(params[14])   if len(params) > 14 else 0
         self._presort_seed_mult      = int(params[15])   if len(params) > 15 else 0
+        self._term_eps               = float(params[16]) if len(params) > 16 else -1.0
         cap_str = ',cap={}'.format(self._cap_cluster_members) if self._cap_cluster_members > 0 else ''
         eps_str = ',eps={:.3f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else ''
         rr8_str = ',rr8={}'.format(self._rerank_sq8) if self._rerank_sq8 > 0 else ''
@@ -173,10 +175,11 @@ class ArcFlare(BaseANN):
         aef_str = ',aef={:.0f}:{}'.format(self._adaptive_ef_threshold, self._adaptive_ef_extended) \
                   if self._adaptive_ef_threshold >= 0.0 and self._adaptive_ef_extended > 0 else ''
         psm_str = ',psm={}'.format(self._presort_seed_mult) if self._presort_seed_mult > 0 else ''
-        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{}{}{})'.format(
+        te_str  = ',te={:.2f}'.format(self._term_eps) if self._term_eps >= 0 else ''
+        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{}{}{}{})'.format(
             self._gamma_enq, self._gamma_term, self._n_probe,
             self._max_visits, self._rerank_factor, self._ef,
-            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str, aef_str, psm_str)
+            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str, aef_str, psm_str, te_str)
 
     def query(self, v, n):
         return self._index.search(
@@ -197,6 +200,7 @@ class ArcFlare(BaseANN):
             adaptive_ef_threshold = float(self._adaptive_ef_threshold),
             adaptive_ef_extended  = int(self._adaptive_ef_extended),
             presort_seed_mult     = int(self._presort_seed_mult),
+            term_eps              = float(self._term_eps),
         )
 
     def batch_query(self, X, n):
@@ -220,6 +224,7 @@ class ArcFlare(BaseANN):
             adaptive_ef_threshold = float(self._adaptive_ef_threshold),
             adaptive_ef_extended  = int(self._adaptive_ef_extended),
             presort_seed_mult     = int(self._presort_seed_mult),
+            term_eps              = float(self._term_eps),
         )
 
     def get_batch_results(self):

@@ -330,38 +330,47 @@ float:
         e128-k256-a150-rebuild-rpq128:
           args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128}]
           query-args:
-            # M=128 rebuild+rpq128 GIST-960. presort_seed_mult (psm, params[15]) pre-filters primary
-            # seeds by RoutingPQ score BEFORE SOAR secondary seeds are added, saving rescore bandwidth.
-            # SOAR secondary seeds are NOT filtered (boundary nodes have high RPQ score but low fp16 dist).
-            # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs, apr, aef_thr, aef_ext, psm]
-            # Verified baseline (9 reps trimmed mean, n_threads=8):
-            #   np=16 ef=60  ncs=128 → 0.9235 @ 1520 QPS
-            #   np=24 ef=60  ncs=128 → 0.9595 @ 1219 QPS
-            #   np=32 ef=80  ncs=128 → 0.9764 @  956 QPS
-            #   np=48 ef=128 ncs=128 → 0.9907 @  667 QPS
-            #   np=48 ef=128 ncs=160 → 0.9914 @  627 QPS
-            # PSM sweep (verified, 9 reps trimmed mean):
-            #   np=16 ef=60  ncs=128 psm=24 → 0.9228 @ 1731 QPS (+13.8% QPS, -0.07% recall)
-            #   np=24 ef=60  ncs=128 psm=24 → 0.9566 @ 1403 QPS (+15.0% QPS, -0.29% recall)
-            #   np=24 ef=60  ncs=128 psm=32 → 0.9584 @ 1332 QPS  (+9.2% QPS, -0.11% recall)
-            #   np=32 ef=80  ncs=128 psm=16 → 0.9712 @ 1179 QPS (+23.4% QPS, -0.52% recall)
-            #   np=32 ef=80  ncs=128 psm=24 → 0.9746 @ 1104 QPS (+15.6% QPS, -0.18% recall)
-            #   np=48 ef=128 ncs=128 psm=24 → 0.9905 @  771 QPS (+15.6% QPS, -0.02% recall)
-            #   np=48 ef=128 ncs=160 psm=24 → 0.9902 @  770 QPS (+22.7% QPS, -0.12% recall)
-            #   np=48 ef=128 ncs=160 psm=32 → 0.9913 @  754 QPS (+20.1% QPS, -0.01% recall) ← best
-            - [[0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
-               [0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
-               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
-               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
-               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 32],
-               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
-               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 16],
-               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0,  0],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 32]]
+            # M=128 rebuild+rpq128 GIST-960. Two-stage beam acceleration:
+            #   psm (params[15]): presort_seed_mult — pre-filter primary seeds by RPQ score before fp16 rescore.
+            #   te  (params[16]): term_eps — stop beam when frontier dist > (1+te)*d_k (exact fp16 gate).
+            # Both together give additive QPS gains; te alone is weaker since CRINN already handles stagnation.
+            # SOAR secondary seeds are NOT filtered by psm (boundary nodes have high RPQ but low fp16 dist).
+            # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs, apr, aef_thr, aef_ext, psm, te]
+            # Verified (9 reps trimmed mean, n_threads=8):
+            #   np=16 ef=60  ncs=128                   → 0.9235 @ 1520 QPS
+            #   np=24 ef=60  ncs=128                   → 0.9595 @ 1205 QPS
+            #   np=24 ef=60  ncs=128 te=0.10           → 0.9582 @ 1306 QPS (+8.4%,  -0.13% recall)
+            #   np=24 ef=60  ncs=128 psm=24             → 0.9566 @ 1390 QPS (+15.4%, -0.29% recall)
+            #   np=24 ef=60  ncs=128 psm=24 te=0.10    → 0.9553 @ 1502 QPS (+24.7%, -0.42% recall)
+            #   np=32 ef=80  ncs=128                   → 0.9764 @  957 QPS
+            #   np=32 ef=80  ncs=128 te=0.10           → 0.9741 @ 1007 QPS (+5.2%,  -0.23% recall)
+            #   np=32 ef=80  ncs=128 psm=16             → 0.9712 @ 1189 QPS (+24.2%, -0.52% recall)
+            #   np=32 ef=80  ncs=128 psm=16 te=0.10   → 0.9688 @ 1215 QPS (+26.9%, -0.76% recall)
+            #   np=48 ef=128 ncs=128                   → 0.9907 @  680 QPS
+            #   np=48 ef=128 ncs=128 psm=24             → 0.9905 @  785 QPS (+15.5%, -0.02% recall)
+            #   np=48 ef=128 ncs=128 psm=24 te=0.10   → 0.9860 @  875 QPS (+28.6%, -0.47% recall)
+            #   np=48 ef=128 ncs=128 psm=24 te=0.15   → 0.9882 @  812 QPS (+19.4%, -0.25% recall)
+            #   np=48 ef=128 ncs=160 psm=24             → 0.9902 @  780 QPS
+            #   np=48 ef=128 ncs=160 psm=24 te=0.15   → 0.9880 @  808 QPS (+3.5%  vs ncs160+psm24)
+            - [[0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0],
+               [0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0,  0.10],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24,  0.10],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 32, -1.0],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0,  0.10],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 16, -1.0],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 16,  0.10],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24,  0.15],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0,  0, -1.0],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24, -1.0],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24,  0.15],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 32, -1.0]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
