@@ -336,7 +336,7 @@ float:
             #   crinn (params[17]): crinn_no_improve_limit — max CRINN stagnation iters (default ef*3/4).
             # Key insight: ncs reduction (128→96) + psm + crinn gives the best ef=60 Pareto point.
             # psm+crinn are additive; te+crinn is slightly redundant (both cut beam iterations).
-            # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs, apr, aef_thr, aef_ext, psm, te, crinn]
+            # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs, apr, aef_thr, aef_ext, psm, te, crinn, brpqk, rpqgm]
             # Verified (9 reps trimmed mean, n_threads=8):
             #   np=16 ef=60  ncs=128                          → 0.9227 @ 1663 QPS
             #   np=20 ef=60  ncs=128                          → 0.9451 @ 1376 QPS
@@ -352,6 +352,10 @@ float:
             #   np=48 ef=128 ncs=128 crinn=80                 → 0.9905 @  684 QPS (+2.9%,  -0.02% RC)
             #   np=48 ef=128 ncs=128 psm=24                   → 0.9904 @  779 QPS (+17.1%, -0.03% RC)
             #   np=48 ef=128 ncs=128 psm=24 crinn=80          → 0.9902 @  797 QPS (+19.8%, -0.05% RC) ★best ef=128
+            # rpqgm (beam_rpq_gate_margin): skip fp16 scoring for neighbors with RPQ est > (1+γ+margin)*d_k.
+            #   Gate activates after k results found; gated nodes NOT marked visited (can be rescored later).
+            #   Measured locally (n_threads=4 warm): +7-10% QPS at -0.45% to -0.67% recall cost per step.
+            #   rpqgm=0.5: +7% QPS, -0.45% recall (safe)   rpqgm=0.3: +10% QPS, -0.67% recall
             - [[0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0],
                [0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0,  0],
                [0.0, -1.0, 20, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0],
@@ -375,7 +379,18 @@ float:
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24, -1.0,  0],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24, -1.0, 80],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24,  0.15,  0],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 32, -1.0,  0]]
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 32, -1.0,  0],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.5],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0,  96, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.5],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0,  80, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.5],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.3],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0,  96, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.3],
+               [0.0, -1.0, 20, 0, 0,  60, 0, -1.0, 0, 0, 0,  96, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.5],
+               [0.0, -1.0, 20, 0, 0,  60, 0, -1.0, 0, 0, 0,  96, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.3],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0, 0, 0.5],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0,  0, 0, 0.5],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.5],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.3]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare

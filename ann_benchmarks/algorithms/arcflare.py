@@ -53,6 +53,8 @@ class ArcFlare(BaseANN):
         self._presort_seed_mult     = 0
         self._term_eps              = -1.0
         self._crinn_no_improve_limit = 0
+        self._beam_rpq_filter_k     = 0
+        self._beam_rpq_gate_margin  = -1.0
         self.name = 'ArcFlare'
 
     def fit(self, X):
@@ -168,6 +170,8 @@ class ArcFlare(BaseANN):
         self._presort_seed_mult      = int(params[15])   if len(params) > 15 else 0
         self._term_eps               = float(params[16]) if len(params) > 16 else -1.0
         self._crinn_no_improve_limit = int(params[17])   if len(params) > 17 else 0
+        self._beam_rpq_filter_k      = int(params[18])   if len(params) > 18 else 0
+        self._beam_rpq_gate_margin   = float(params[19]) if len(params) > 19 else -1.0
         cap_str = ',cap={}'.format(self._cap_cluster_members) if self._cap_cluster_members > 0 else ''
         eps_str = ',eps={:.3f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else ''
         rr8_str = ',rr8={}'.format(self._rerank_sq8) if self._rerank_sq8 > 0 else ''
@@ -176,13 +180,15 @@ class ArcFlare(BaseANN):
         apr_str = ',apr={:.1f}'.format(self._adaptive_probe_ratio) if self._adaptive_probe_ratio > 0 else ''
         aef_str = ',aef={:.0f}:{}'.format(self._adaptive_ef_threshold, self._adaptive_ef_extended) \
                   if self._adaptive_ef_threshold >= 0.0 and self._adaptive_ef_extended > 0 else ''
-        psm_str   = ',psm={}'.format(self._presort_seed_mult) if self._presort_seed_mult > 0 else ''
-        te_str    = ',te={:.2f}'.format(self._term_eps) if self._term_eps >= 0 else ''
-        crinn_str = ',crinn={}'.format(self._crinn_no_improve_limit) if self._crinn_no_improve_limit > 0 else ''
-        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{}{}{}{}{})'.format(
+        psm_str    = ',psm={}'.format(self._presort_seed_mult) if self._presort_seed_mult > 0 else ''
+        te_str     = ',te={:.2f}'.format(self._term_eps) if self._term_eps >= 0 else ''
+        crinn_str  = ',crinn={}'.format(self._crinn_no_improve_limit) if self._crinn_no_improve_limit > 0 else ''
+        brpqk_str  = ',brpqk={}'.format(self._beam_rpq_filter_k) if self._beam_rpq_filter_k > 0 else ''
+        rpqgm_str  = ',rpqgm={:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else ''
+        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{}{}{}{}{}{}{})'.format(
             self._gamma_enq, self._gamma_term, self._n_probe,
             self._max_visits, self._rerank_factor, self._ef,
-            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str, aef_str, psm_str, te_str, crinn_str)
+            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str, aef_str, psm_str, te_str, crinn_str, brpqk_str, rpqgm_str)
 
     def query(self, v, n):
         return self._index.search(
@@ -205,6 +211,8 @@ class ArcFlare(BaseANN):
             presort_seed_mult        = int(self._presort_seed_mult),
             term_eps                 = float(self._term_eps),
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
+            beam_rpq_filter_k        = int(self._beam_rpq_filter_k),
+            beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
         )
 
     def batch_query(self, X, n):
@@ -230,6 +238,8 @@ class ArcFlare(BaseANN):
             presort_seed_mult        = int(self._presort_seed_mult),
             term_eps                 = float(self._term_eps),
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
+            beam_rpq_filter_k        = int(self._beam_rpq_filter_k),
+            beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
         )
 
     def get_batch_results(self):
