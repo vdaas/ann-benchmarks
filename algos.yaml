@@ -330,32 +330,38 @@ float:
         e128-k256-a150-rebuild-rpq128:
           args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128}]
           query-args:
-            # M=128 rebuild+rpq128 GIST-960. presort_seed_mult (psm, params[15]) pre-filters seeds by
-            # RoutingPQ score before fp16 rescore, saving 50-80% of rescore bandwidth.
-            # For K=256 (avg_cluster=3900), M=128 RPQ precision is very high — psm=24 loses <0.02% recall.
+            # M=128 rebuild+rpq128 GIST-960. presort_seed_mult (psm, params[15]) pre-filters primary
+            # seeds by RoutingPQ score BEFORE SOAR secondary seeds are added, saving rescore bandwidth.
+            # SOAR secondary seeds are NOT filtered (boundary nodes have high RPQ score but low fp16 dist).
             # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs, apr, aef_thr, aef_ext, psm]
-            # Baseline (psm=0 / no pre-filter):
-            #   np=24 ef=60  ncs=128 → 0.9595 @ 1200 QPS
-            #   np=32 ef=80  ncs=128 → 0.9764 @  882 QPS
-            #   np=48 ef=128 ncs=128 → 0.9907 @  410 QPS
-            #   np=48 ef=128 ncs=160 → 0.9914 @  379 QPS
-            # With psm (measured, 7 reps trimmed mean):
-            #   np=24 ef=60  ncs=128 psm=32 → 0.9584 @ 1295 QPS (+11.6% QPS, -0.11% recall)
-            #   np=24 ef=60  ncs=128 psm=24 → 0.9566 @ 1378 QPS (+18.7% QPS, -0.29% recall)
-            #   np=32 ef=80  ncs=128 psm=16 → 0.9712 @ 1062 QPS (+20.4% QPS, -0.52% recall)
-            #   np=48 ef=128 ncs=128 psm=24 → 0.9905 @  490 QPS (+19.7% QPS, -0.02% recall)
-            #   np=48 ef=128 ncs=128 psm=16 → 0.9893 @  507 QPS (+23.6% QPS, -0.14% recall)
-            #   np=48 ef=128 ncs=160 psm=24 → 0.9902 @  494 QPS (+30.0% QPS, -0.12% recall)
-            - [[0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
+            # Verified baseline (9 reps trimmed mean, n_threads=8):
+            #   np=16 ef=60  ncs=128 → 0.9235 @ 1520 QPS
+            #   np=24 ef=60  ncs=128 → 0.9595 @ 1219 QPS
+            #   np=32 ef=80  ncs=128 → 0.9764 @  956 QPS
+            #   np=48 ef=128 ncs=128 → 0.9907 @  667 QPS
+            #   np=48 ef=128 ncs=160 → 0.9914 @  627 QPS
+            # PSM sweep (verified, 9 reps trimmed mean):
+            #   np=16 ef=60  ncs=128 psm=24 → 0.9228 @ 1731 QPS (+13.8% QPS, -0.07% recall)
+            #   np=24 ef=60  ncs=128 psm=24 → 0.9566 @ 1403 QPS (+15.0% QPS, -0.29% recall)
+            #   np=24 ef=60  ncs=128 psm=32 → 0.9584 @ 1332 QPS  (+9.2% QPS, -0.11% recall)
+            #   np=32 ef=80  ncs=128 psm=16 → 0.9712 @ 1179 QPS (+23.4% QPS, -0.52% recall)
+            #   np=32 ef=80  ncs=128 psm=24 → 0.9746 @ 1104 QPS (+15.6% QPS, -0.18% recall)
+            #   np=48 ef=128 ncs=128 psm=24 → 0.9905 @  771 QPS (+15.6% QPS, -0.02% recall)
+            #   np=48 ef=128 ncs=160 psm=24 → 0.9902 @  770 QPS (+22.7% QPS, -0.12% recall)
+            #   np=48 ef=128 ncs=160 psm=32 → 0.9913 @  754 QPS (+20.1% QPS, -0.01% recall) ← best
+            - [[0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
+               [0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
+               [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
                [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
                [0.0, -1.0, 24, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 32],
                [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
                [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 16],
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 16],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0,  0],
-               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24]]
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 24],
+               [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 160, 0.0, -1.0, 0, 32]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
