@@ -34,6 +34,8 @@ class ArcFlare(BaseANN):
         self._bapq        = bool(params.get('bapq',           False))
         # saq: per-subspace OPQ/PCA rotation for RoutingPQ (AF_SAQ=ON + AF_SQ8=ON + AF_SOAR=ON)
         self._saq         = bool(params.get('saq',            False))
+        # saq_fp16: SAQ + fp16 beam (AF_SAQ=ON + AF_FP16_BEAM=ON + AF_SQ8=ON + AF_SOAR=OFF)
+        self._saq_fp16    = bool(params.get('saq_fp16',       False))
         # Query-time defaults
         self._gamma_enq           = 0.20
         self._gamma_term          = 0.40
@@ -46,6 +48,9 @@ class ArcFlare(BaseANN):
         self._rerank_sq8          = 0
         self._pool_extra          = 0
         self._angular_expand_n    = 0
+        self._adaptive_ef_threshold = -1.0
+        self._adaptive_ef_extended  = 0
+        self._presort_seed_mult     = 0
         self.name = 'ArcFlare'
 
     def fit(self, X):
@@ -63,6 +68,8 @@ class ArcFlare(BaseANN):
         _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
         if self._soar:
             _BUILD = _MAIN + '/build/python_sdk_soar'
+        elif self._saq_fp16:
+            _BUILD = _WORKTREE + '/build_saq_fp16'
         elif self._saq:
             _BUILD = _WORKTREE + '/build_soar_saq'
         elif self._bapq:
@@ -95,7 +102,7 @@ class ArcFlare(BaseANN):
             'ang' if angular else 'l2',
             '-soar' if self._soar else '',
             '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '',
-            '-saq' if self._saq else ('-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4' if self._sq4_beam else ''))))
+            '-saqfp16' if self._saq_fp16 else ('-saq' if self._saq else ('-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4' if self._sq4_beam else '')))))
         index_dir = os.path.join(INDEX_DIR, tag)
 
         self._index = arcflare_ext.ArcFlare(
@@ -154,16 +161,22 @@ class ArcFlare(BaseANN):
         self._angular_expand_n    = int(params[10]) if len(params) > 10 else 0
         self._n_cluster_seeds_s      = int(params[11])   if len(params) > 11 else 0
         self._adaptive_probe_ratio   = float(params[12]) if len(params) > 12 else 0.0
+        self._adaptive_ef_threshold  = float(params[13]) if len(params) > 13 else -1.0
+        self._adaptive_ef_extended   = int(params[14])   if len(params) > 14 else 0
+        self._presort_seed_mult      = int(params[15])   if len(params) > 15 else 0
         cap_str = ',cap={}'.format(self._cap_cluster_members) if self._cap_cluster_members > 0 else ''
         eps_str = ',eps={:.3f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else ''
         rr8_str = ',rr8={}'.format(self._rerank_sq8) if self._rerank_sq8 > 0 else ''
         pe_str  = ',pe={}'.format(self._pool_extra) if self._pool_extra > 0 else ''
         en_str  = ',en={}'.format(self._angular_expand_n) if self._angular_expand_n > 0 else ''
         apr_str = ',apr={:.1f}'.format(self._adaptive_probe_ratio) if self._adaptive_probe_ratio > 0 else ''
-        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{})'.format(
+        aef_str = ',aef={:.0f}:{}'.format(self._adaptive_ef_threshold, self._adaptive_ef_extended) \
+                  if self._adaptive_ef_threshold >= 0.0 and self._adaptive_ef_extended > 0 else ''
+        psm_str = ',psm={}'.format(self._presort_seed_mult) if self._presort_seed_mult > 0 else ''
+        self.name = 'ArcFlare(ge={:.2f},gt={:.2f},np={},mv={},rf={},ef={}{}{}{}{}{}{}{}{})'.format(
             self._gamma_enq, self._gamma_term, self._n_probe,
             self._max_visits, self._rerank_factor, self._ef,
-            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str)
+            cap_str, eps_str, rr8_str, pe_str, en_str, apr_str, aef_str, psm_str)
 
     def query(self, v, n):
         return self._index.search(
@@ -181,6 +194,9 @@ class ArcFlare(BaseANN):
             angular_expand_n      = int(self._angular_expand_n),
             n_cluster_seeds       = int(self._n_cluster_seeds_s),
             adaptive_probe_ratio  = float(self._adaptive_probe_ratio),
+            adaptive_ef_threshold = float(self._adaptive_ef_threshold),
+            adaptive_ef_extended  = int(self._adaptive_ef_extended),
+            presort_seed_mult     = int(self._presort_seed_mult),
         )
 
     def batch_query(self, X, n):
@@ -201,6 +217,9 @@ class ArcFlare(BaseANN):
             angular_expand_n      = int(self._angular_expand_n),
             n_cluster_seeds       = int(self._n_cluster_seeds_s),
             adaptive_probe_ratio  = float(self._adaptive_probe_ratio),
+            adaptive_ef_threshold = float(self._adaptive_ef_threshold),
+            adaptive_ef_extended  = int(self._adaptive_ef_extended),
+            presort_seed_mult     = int(self._presort_seed_mult),
         )
 
     def get_batch_results(self):
