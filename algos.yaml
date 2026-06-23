@@ -334,7 +334,9 @@ float:
             #   psm   (params[15]): presort_seed_mult — pre-filter primary seeds by RPQ score before fp16 rescore.
             #   te    (params[16]): term_eps — stop beam when frontier dist > (1+te)*d_k (exact fp16 gate).
             #   crinn (params[17]): crinn_no_improve_limit — max CRINN stagnation iters (default ef*3/4).
-            # Key insight: ncs reduction (128→96) + psm + crinn gives the best ef=60 Pareto point.
+            # Key insight: ncs=128 is near-optimal across all ef regimes; psm+crinn are additive speedups.
+            #   ncs sweep (15 reps, n_threads=8): ncs=128 beats ncs=96/160/256/320 for ef=60 with psm+crinn.
+            #   ef=128: ncs=128 optimal; higher ncs adds RPQ cost without beam speedup (fp16_seeds=3072 saturated).
             # psm+crinn are additive; te+crinn is slightly redundant (both cut beam iterations).
             # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs, apr, aef_thr, aef_ext, psm, te, crinn, brpqk, rpqgm]
             # Verified (9 reps trimmed mean, n_threads=8):
@@ -345,17 +347,22 @@ float:
             #   np=24 ef=60  ncs=128                          → 0.9588 @ 1236 QPS
             #   np=24 ef=60  ncs=96                           → 0.9567 @ 1304 QPS (+5.5%,  -0.21% RC)
             #   np=24 ef=60  ncs=64                           → 0.9545 @ 1420 QPS (+14.9%, -0.43% RC)
-            #   np=24 ef=60  ncs=128 psm=24 crinn=24          → 0.9521 @ 1604 QPS (+29.7%, -0.67% RC)
-            #   np=24 ef=60  ncs=96  psm=24 crinn=24          → 0.9515 @ 1659 QPS (+34.2%, -0.73% RC) ★best ef=60
+            #   np=24 ef=60  ncs=128 psm=24 crinn=24          → 0.9521 @ 1621 QPS (+31.2%, -0.67% RC) ★best ef=60
+            #   np=24 ef=60  ncs=96  psm=24 crinn=24          → 0.9515 @ 1601 QPS (−1.2% vs ncs=128+psm)
             #   np=32 ef=80  ncs=128                          → 0.9759 @  858 QPS
+            #   np=32 ef=80  ncs=128 psm=24 crinn=32 rpqgm=0.3 → 0.9645 @ 1308 QPS (+3.6%, -0.70% RC)
             #   np=48 ef=128 ncs=128                          → 0.9907 @  665 QPS
             #   np=48 ef=128 ncs=128 crinn=80                 → 0.9905 @  684 QPS (+2.9%,  -0.02% RC)
             #   np=48 ef=128 ncs=128 psm=24                   → 0.9904 @  779 QPS (+17.1%, -0.03% RC)
-            #   np=48 ef=128 ncs=128 psm=24 crinn=80          → 0.9902 @  797 QPS (+19.8%, -0.05% RC) ★best ef=128
+            #   np=48 ef=128 ncs=128 psm=24 crinn=80          → 0.9902 @  820 QPS (+23.3%, -0.05% RC) ★best ef=128
             # rpqgm (beam_rpq_gate_margin): skip fp16 scoring for neighbors with RPQ est > (1+γ+margin)*d_k.
             #   Gate activates after k results found; gated nodes NOT marked visited (can be rescored later).
-            #   Measured locally (n_threads=4 warm): +7-10% QPS at -0.45% to -0.67% recall cost per step.
-            #   rpqgm=0.5: +7% QPS, -0.45% recall (safe)   rpqgm=0.3: +10% QPS, -0.67% recall
+            #   Dynamic intra-expansion tightening: d_k+gate_thresh updated after each 8x batch flush.
+            #   Benchmarked (9 reps trimmed mean, n_threads=8):
+            #     np=24 ef=60  psm=24 crinn=24: rpqgm=2.0 → -1.8% QPS, -0.18% RC
+            #     np=24 ef=60  psm=24 crinn=24: rpqgm=0.5 → -2.0% QPS, -0.48% RC
+            #     np=24 ef=60  psm=24 crinn=24: rpqgm=0.3 → +4.7% QPS, -0.65% RC  ← sweet spot
+            #     np=32 ef=80  psm=24 crinn=32: rpqgm=0.3 → +3.6% QPS, -0.70% RC
             - [[0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0],
                [0.0, -1.0, 16, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0,  0],
                [0.0, -1.0, 20, 0, 0,  60, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0],
@@ -389,6 +396,8 @@ float:
                [0.0, -1.0, 20, 0, 0,  60, 0, -1.0, 0, 0, 0,  96, 0.0, -1.0, 0, 24, -1.0, 24, 0, 0.3],
                [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0,  0, -1.0,  0, 0, 0.5],
                [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0,  0, 0, 0.5],
+               # rpqgm=0.3 for ef=80: psm=24 crinn=32 → +3.6% QPS at recall=0.9645 (Δ=-0.70% vs baseline)
+               [0.0, -1.0, 32, 0, 0,  80, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 32, 0, 0.3],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.5],
                [0.0, -1.0, 48, 0, 0, 128, 0, -1.0, 0, 0, 0, 128, 0.0, -1.0, 0, 24, -1.0, 80, 0, 0.3]]
     ArcFlare-A16:
