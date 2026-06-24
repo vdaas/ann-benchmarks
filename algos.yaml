@@ -366,7 +366,7 @@ float:
             #   np=56 ef=200 ncs=64 psm=24 crinn=70                → 0.9913 @  945 QPS (16T) (no srg)
             #   np=56 ef=200 ncs=64 psm=24 crinn=65 srg=0.2        → 0.9905 @ 1018 QPS (16T) ✗ Pareto-dominated by crinn=70
             #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.15       → 0.9906 @ 1117 QPS (16T) ★ +172 QPS vs no-srg
-            #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9909 @ 1146 QPS (16T) ★ NEW BEST (recall↑+QPS↑)
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9909 @ 1146 QPS (16T) ★ best fp16 (see sq4 run-group for +15.5% QPS)
             #   np=64 ef=200 ncs=64 psm=24 crinn=60 srg=0.2        → 0.9911 @ 1035 QPS (16T) ★ Pareto (recall↑, QPS↓ vs np=56)
             #   np=64 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9925 @  954 QPS (16T) ★ high-recall Pareto
             #   np=64 ef=200 ncs=64 psm=24 crinn=80 srg=0.2        → 0.9938 @  962 QPS (16T) ★ highest recall
@@ -422,6 +422,24 @@ float:
                [64, 200,  64, 24,  80, -1.0, -1.0, 0.2],
                # ef=200 ncs=32 crinn=70 np=56 srg=0.2 wsb=1: recall=0.9903 @ 1130 QPS (16T) ★ highest QPS at recall ≥0.99
                [56, 200,  32, 24,  70, -1.0, -1.0, 0.2, -1.0, 1]]
+        e128-k256-a150-rebuild-rpq128-sq4:
+          args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true}]
+          query-args:
+            # SQ4 beam M128 rebuild+rpq128 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Pareto (16T, Python SDK, tail-batch + sq8Dist8x/16x):
+            #   np=48 crinn=70 ncs=72: recall=0.9910 @QPS=1323 ★ best QPS recall≥0.99 (+15.5% vs fp16 beam)
+            #   np=56 crinn=60 ncs=72: recall=0.9926 @QPS=1236 ★
+            #   np=56 crinn=70 ncs=72: recall=0.9928 @QPS=1192 ★
+            #   np=64 crinn=70 ncs=72: recall=0.9947 @QPS=1072 ★ high-recall
+            #   np=72 crinn=70 ncs=72: recall=0.9950 @QPS=985  ★ highest recall
+            # NOTE: srg=-1.0 (off) is optimal for SQ4 beam (srg reduces recall unlike fp16 beam)
+            - [[32, 200, 72, 24, 70, -1.0],
+               [40, 200, 72, 24, 70, -1.0],
+               [48, 200, 72, 24, 70, -1.0],
+               [56, 200, 72, 24, 60, -1.0],
+               [56, 200, 72, 24, 70, -1.0],
+               [64, 200, 72, 24, 70, -1.0],
+               [72, 200, 72, 24, 70, -1.0]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
@@ -1132,31 +1150,32 @@ float:
         a140-l2-sq4:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true}]
           query-args:
-            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb]
             # SQ4 beam: 4-bit nibble-packed, ~400 bytes/vector (fp16 1568B x1/4)
             # Fashion-MNIST-784 measured results:
             #   Glass SQ4U hard ceiling: recall=0.9519 @ QPS=69K-120K (M=32/48, ef=400-600)
             #   ArcFlare SQ4 breaks Glass ceiling: recall=0.9543 @ QPS=59K (np=2,ef=20,ncs=2)
             #   ArcFlare SQ4 @ 0.9849 recall = QPS=35K (np=4,ef=30,ncs=4)
             #   ArcFlare SQ4 @ 0.9996 recall = QPS=9K  (np=16,ef=100,ncs=64)
-            - [[0.0, -1.0,  2, 0, 0, 20, 0, -1.0, 0, 0, 0,  2],
-               [0.0, -1.0,  2, 0, 0, 30, 0, -1.0, 0, 0, 0,  4],
-               [0.0, -1.0,  4, 0, 0, 30, 0, -1.0, 0, 0, 0,  4],
-               [0.0, -1.0,  4, 0, 0, 40, 0, -1.0, 0, 0, 0,  4],
-               [0.0, -1.0,  4, 0, 0, 40, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  4, 0, 0, 60, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  8, 0, 0, 60, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  8, 0, 0, 80, 0, -1.0, 0, 0, 0, 16],
-               [0.0, -1.0,  8, 0, 0, 80, 0, -1.0, 0, 0, 0, 32],
-               [0.0, -1.0, 16, 0, 0, 80, 0, -1.0, 0, 0, 0, 32],
-               [0.0, -1.0, 16, 0, 0, 100, 0, -1.0, 0, 0, 0, 64],
-               [0.0, -1.0, 24, 0, 0, 120, 0, -1.0, 0, 0, 0, 64],
-               [0.0, -1.0, 32, 0, 0, 150, 0, -1.0, 0, 0, 0, 96],
-               [0.0, -1.0,  4, 0, 2, 40, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  8, 0, 2, 80, 0, -1.0, 0, 0, 0, 16],
-               [0.0, -1.0, 16, 0, 2, 100, 0, -1.0, 0, 0, 0, 64],
-               [0.0, -1.0, 24, 0, 2, 150, 0, -1.0, 0, 0, 0, 96],
-               [0.0, -1.0, 32, 0, 2, 200, 0, -1.0, 0, 0, 0, 128]]
+            # GIST-960-euclidean measured (single-thread, max_edges=128, alpha=1.5):
+            #   np=56 srg=0.2: recall>=0.99 (peak recall=0.9930 @ np=64,srg=0.3)
+            - [[ 2,  20,   2, 0, 0, -1.0, -1.0],
+               [ 2,  30,   4, 0, 0, -1.0, -1.0],
+               [ 4,  30,   4, 0, 0, -1.0, -1.0],
+               [ 4,  40,   4, 0, 0, -1.0, -1.0],
+               [ 4,  40,   8, 0, 0, -1.0, -1.0],
+               [ 4,  60,   8, 0, 0, -1.0, -1.0],
+               [ 8,  60,   8, 0, 0, -1.0, -1.0],
+               [ 8,  80,  16, 0, 0, -1.0, -1.0],
+               [ 8,  80,  32, 0, 0, -1.0, -1.0],
+               [16,  80,  32, 0, 0, -1.0, -1.0],
+               [16, 100,  64, 0, 0, -1.0, -1.0],
+               [24, 120,  64, 0, 0, -1.0, -1.0],
+               [32, 150,  96, 0, 0, -1.0, -1.0],
+               [48, 200, 128, 0, 0, -1.0, -1.0],
+               [56, 200, 128, 0, 0, -1.0, -1.0, 0.2],
+               [64, 200, 128, 0, 0, -1.0, -1.0, 0.2],
+               [64, 300, 192, 0, 0, -1.0, -1.0, 0.3]]
         a140-l2-bapq:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'bapq': true}]
           query-args:
@@ -1216,26 +1235,24 @@ float:
         a140-l2-sq2:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq2_beam': true}]
           query-args:
-            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb]
             # SQ2 beam: 2-bit packed codes, ~200 bytes/vector (fp16 1568B x1/8)
-            - [[0.0, -1.0,  2, 0, 0, 20, 0, -1.0, 0, 0, 0,  2],
-               [0.0, -1.0,  2, 0, 0, 30, 0, -1.0, 0, 0, 0,  4],
-               [0.0, -1.0,  4, 0, 0, 30, 0, -1.0, 0, 0, 0,  4],
-               [0.0, -1.0,  4, 0, 0, 40, 0, -1.0, 0, 0, 0,  4],
-               [0.0, -1.0,  4, 0, 0, 40, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  4, 0, 0, 60, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  8, 0, 0, 60, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  8, 0, 0, 80, 0, -1.0, 0, 0, 0, 16],
-               [0.0, -1.0,  8, 0, 0, 80, 0, -1.0, 0, 0, 0, 32],
-               [0.0, -1.0, 16, 0, 0, 80, 0, -1.0, 0, 0, 0, 32],
-               [0.0, -1.0, 16, 0, 0, 100, 0, -1.0, 0, 0, 0, 64],
-               [0.0, -1.0, 24, 0, 0, 120, 0, -1.0, 0, 0, 0, 64],
-               [0.0, -1.0, 32, 0, 0, 150, 0, -1.0, 0, 0, 0, 96],
-               [0.0, -1.0,  4, 0, 2, 40, 0, -1.0, 0, 0, 0,  8],
-               [0.0, -1.0,  8, 0, 2, 80, 0, -1.0, 0, 0, 0, 16],
-               [0.0, -1.0, 16, 0, 2, 100, 0, -1.0, 0, 0, 0, 64],
-               [0.0, -1.0, 24, 0, 2, 150, 0, -1.0, 0, 0, 0, 96],
-               [0.0, -1.0, 32, 0, 2, 200, 0, -1.0, 0, 0, 0, 128]]
+            # Higher np needed to compensate 2-bit quantization loss vs SQ4
+            - [[ 4,  30,   4, 0, 0, -1.0, -1.0],
+               [ 4,  40,   8, 0, 0, -1.0, -1.0],
+               [ 4,  60,   8, 0, 0, -1.0, -1.0],
+               [ 8,  60,  16, 0, 0, -1.0, -1.0],
+               [ 8,  80,  16, 0, 0, -1.0, -1.0],
+               [ 8,  80,  32, 0, 0, -1.0, -1.0],
+               [16,  80,  32, 0, 0, -1.0, -1.0],
+               [16, 100,  64, 0, 0, -1.0, -1.0],
+               [24, 120,  64, 0, 0, -1.0, -1.0],
+               [32, 150,  96, 0, 0, -1.0, -1.0],
+               [48, 200, 128, 0, 0, -1.0, -1.0],
+               [64, 200, 128, 0, 0, -1.0, -1.0],
+               [64, 300, 192, 0, 0, -1.0, -1.0],
+               [80, 300, 192, 0, 0, -1.0, -1.0, 0.2],
+               [96, 400, 256, 0, 0, -1.0, -1.0, 0.2]]
         a140-l2-rpq128:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'routing_pq_m': 128}]
           query-args:
