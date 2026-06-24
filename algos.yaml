@@ -367,6 +367,7 @@ float:
             #   np=56 ef=200 ncs=64 psm=24 crinn=65 srg=0.2        → 0.9905 @ 1018 QPS (16T) ✗ Pareto-dominated by crinn=70
             #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.15       → 0.9906 @ 1117 QPS (16T) ★ +172 QPS vs no-srg
             #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9909 @ 1146 QPS (16T) ★ NEW BEST (recall↑+QPS↑)
+            #   np=64 ef=200 ncs=64 psm=24 crinn=60 srg=0.2        → 0.9911 @ 1035 QPS (16T) ★ Pareto (recall↑, QPS↓ vs np=56)
             #   np=64 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9925 @  954 QPS (16T) ★ high-recall Pareto
             #   np=64 ef=200 ncs=64 psm=24 crinn=80 srg=0.2        → 0.9938 @  962 QPS (16T) ★ highest recall
             #
@@ -411,6 +412,8 @@ float:
                [56, 200,  64, 24,  70, -1.0, -1.0, 0.15],
                # ef=200 ncs=64 crinn=70 np=56 srg=0.2: recall=0.9909 @ 1146 QPS (16T) ★ NEW BEST
                [56, 200,  64, 24,  70, -1.0, -1.0, 0.2],
+               # ef=200 ncs=64 crinn=60 np=64 srg=0.2: recall=0.9911 @ 1035 QPS (16T) ★ Pareto
+               [64, 200,  64, 24,  60, -1.0, -1.0, 0.2],
                # ef=200 ncs=64 crinn=70 np=64 srg=0.2: recall=0.9925 @ 954 QPS (16T) ★ high-recall Pareto
                [64, 200,  64, 24,  70, -1.0, -1.0, 0.2],
                # ef=200 ncs=64 crinn=80 np=64 srg=0.2: recall=0.9938 @ 962 QPS (16T) ★ highest recall
