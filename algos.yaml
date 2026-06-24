@@ -425,14 +425,15 @@ float:
         e128-k256-a150-rebuild-rpq128-sq4:
           args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true}]
           query-args:
-            # SQ4 beam M128 rebuild+rpq128 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # SQ4 beam M128 rebuild+rpq128 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm]
             # Pareto (16T, Python SDK, tail-batch + sq8Dist8x/16x):
-            #   np=48 crinn=70 ncs=72: recall=0.9910 @QPS=1323 ★ best QPS recall≥0.99 (+15.5% vs fp16 beam)
-            #   np=56 crinn=60 ncs=72: recall=0.9926 @QPS=1236 ★
+            #   np=48 crinn=70 ncs=72: recall=0.9910 @QPS=1375 ★ best QPS recall≥0.99 (+20% vs fp16 beam 1146)
+            #   np=56 crinn=60 ncs=72: recall=0.9926 @QPS=1278 ★
             #   np=56 crinn=70 ncs=72: recall=0.9928 @QPS=1192 ★
             #   np=64 crinn=70 ncs=72: recall=0.9947 @QPS=1072 ★ high-recall
             #   np=72 crinn=70 ncs=72: recall=0.9950 @QPS=985  ★ highest recall
-            # NOTE: srg=-1.0 (off) is optimal for SQ4 beam (srg reduces recall unlike fp16 beam)
+            # NOTE: srg=-1.0 (off) is optimal; wsb=0/1 makes no difference for SQ4 beam
+            # NOTE: np=40 cannot reach recall>=0.99 even with ncs=96 ef=320
             - [[32, 200, 72, 24, 70, -1.0],
                [40, 200, 72, 24, 70, -1.0],
                [48, 200, 72, 24, 70, -1.0],
