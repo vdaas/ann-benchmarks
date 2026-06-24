@@ -427,16 +427,19 @@ float:
           query-args:
             # SQ4 beam M128 rebuild+rpq128 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm]
             # Pareto (16T, Python SDK, tail-batch + sq8Dist8x/16x):
-            #   np=48 crinn=70 ncs=72: recall=0.9910 @QPS=1375 ★ best QPS recall≥0.99 (+20% vs fp16 beam 1146)
-            #   np=56 crinn=60 ncs=72: recall=0.9926 @QPS=1278 ★
-            #   np=56 crinn=70 ncs=72: recall=0.9928 @QPS=1192 ★
-            #   np=64 crinn=70 ncs=72: recall=0.9947 @QPS=1072 ★ high-recall
-            #   np=72 crinn=70 ncs=72: recall=0.9950 @QPS=985  ★ highest recall
+            #   np=48 ef=180 crinn=70 ncs=72: recall=0.9906 @QPS=1386 ★ best QPS recall≥0.99 (+21% vs fp16 beam 1146)
+            #   np=56 ef=180 crinn=60 ncs=72: recall=0.9914 @QPS=1291 ★
+            #   np=56 ef=200 crinn=60 ncs=72: recall=0.9926 @QPS=1229 ★
+            #   np=56 ef=200 crinn=70 ncs=72: recall=0.9928 @QPS=1192 ★
+            #   np=64 ef=200 crinn=70 ncs=72: recall=0.9947 @QPS=1072 ★ high-recall
+            #   np=72 ef=200 crinn=70 ncs=72: recall=0.9950 @QPS=985  ★ highest recall
+            # NOTE: ef=180 dominates ef=200 at np=48 (higher QPS, recall≥0.99); ef=170 barely ≥0.99 (not safe)
             # NOTE: srg=-1.0 (off) is optimal; wsb=0/1 makes no difference for SQ4 beam
             # NOTE: np=40 cannot reach recall>=0.99 even with ncs=96 ef=320
             - [[32, 200, 72, 24, 70, -1.0],
                [40, 200, 72, 24, 70, -1.0],
-               [48, 200, 72, 24, 70, -1.0],
+               [48, 180, 72, 24, 70, -1.0],
+               [56, 180, 72, 24, 60, -1.0],
                [56, 200, 72, 24, 60, -1.0],
                [56, 200, 72, 24, 70, -1.0],
                [64, 200, 72, 24, 70, -1.0],
