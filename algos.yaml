@@ -370,6 +370,8 @@ float:
             #   np=64 ef=200 ncs=64 psm=24 crinn=60 srg=0.2        → 0.9911 @ 1035 QPS (16T) ★ Pareto (recall↑, QPS↓ vs np=56)
             #   np=64 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9925 @  954 QPS (16T) ★ high-recall Pareto
             #   np=64 ef=200 ncs=64 psm=24 crinn=80 srg=0.2        → 0.9938 @  962 QPS (16T) ★ highest recall
+            #   np=56 ef=200 ncs=32 psm=24 crinn=70 srg=0.2 wsb=1  → 0.9903 @ 1130 QPS (16T) ★ +4% QPS vs ncs=64 wsb=0
+            #     (wsb=weighted_seed_budget: nearby clusters get 2x seeds, far clusters get fewer; provisional srg threshold)
             #
             # NOTE: np=40 recall ceiling = 0.987 regardless of ef (IVF quantization bound, not beam search)
             - [[16,  60],
@@ -400,9 +402,9 @@ float:
                [48, 200,  64, 24,  90, -1.0],
                # ef=200 ncs=64 crinn=92: QPS>1000 at recall ≥0.99 (16T: 1052 QPS avg)
                [48, 200,  64, 24,  92, -1.0],
-               # ef=200 ncs=64 crinn=92 srg=0.2: recall=0.9902 @ 1069 QPS avg (16T)
+               # ef=200 ncs=64 crinn=92 srg=0.2: recall=0.9902 @ 1069 QPS avg (16T) ✗ dominated by np=56 crinn=70 srg=0.2 (1146 QPS)
                [48, 200,  64, 24,  92, -1.0, -1.0, 0.2],
-               # ef=200 ncs=64 crinn=92 srg=0.2 feef=0.05: recall=0.9902 @ 1073 QPS (16T, +4 QPS ≈ noise)
+               # ef=200 ncs=64 crinn=92 srg=0.2 feef=0.05: recall=0.9902 @ 1073 QPS (16T, +4 QPS ≈ noise) ✗ dominated
                [48, 200,  64, 24,  92, -1.0, -1.0, 0.2, 0.05],
                # ef=200 ncs=64 crinn=100: QPS>1000 at recall ≥0.99 (16T: 1003 QPS)
                [48, 200,  64, 24, 100, -1.0],
@@ -417,7 +419,9 @@ float:
                # ef=200 ncs=64 crinn=70 np=64 srg=0.2: recall=0.9925 @ 954 QPS (16T) ★ high-recall Pareto
                [64, 200,  64, 24,  70, -1.0, -1.0, 0.2],
                # ef=200 ncs=64 crinn=80 np=64 srg=0.2: recall=0.9938 @ 962 QPS (16T) ★ highest recall
-               [64, 200,  64, 24,  80, -1.0, -1.0, 0.2]]
+               [64, 200,  64, 24,  80, -1.0, -1.0, 0.2],
+               # ef=200 ncs=32 crinn=70 np=56 srg=0.2 wsb=1: recall=0.9903 @ 1130 QPS (16T) ★ highest QPS at recall ≥0.99
+               [56, 200,  32, 24,  70, -1.0, -1.0, 0.2, -1.0, 1]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
