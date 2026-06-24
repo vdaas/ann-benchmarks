@@ -364,8 +364,11 @@ float:
             #   np=48 ef=200 ncs=64 psm=24 crinn=100               → 0.9905 @ 1003 QPS (16T)
             #   np=40 ef=200 ncs=64 psm=24 crinn=100               → 0.9869 @ 1218 QPS (16T) — recall ceiling 0.987 (np insufficient)
             #   np=56 ef=200 ncs=64 psm=24 crinn=70                → 0.9913 @  945 QPS (16T) (no srg)
+            #   np=56 ef=200 ncs=64 psm=24 crinn=65 srg=0.2        → 0.9905 @ 1018 QPS (16T) ✗ Pareto-dominated by crinn=70
             #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.15       → 0.9906 @ 1117 QPS (16T) ★ +172 QPS vs no-srg
             #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9909 @ 1146 QPS (16T) ★ NEW BEST (recall↑+QPS↑)
+            #   np=64 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9925 @  954 QPS (16T) ★ high-recall Pareto
+            #   np=64 ef=200 ncs=64 psm=24 crinn=80 srg=0.2        → 0.9938 @  962 QPS (16T) ★ highest recall
             #
             # NOTE: np=40 recall ceiling = 0.987 regardless of ef (IVF quantization bound, not beam search)
             - [[16,  60],
@@ -407,7 +410,11 @@ float:
                # ef=200 ncs=64 crinn=70 np=56 srg=0.15: recall=0.9906 @ 1117 QPS (16T) ★ high-recall Pareto
                [56, 200,  64, 24,  70, -1.0, -1.0, 0.15],
                # ef=200 ncs=64 crinn=70 np=56 srg=0.2: recall=0.9909 @ 1146 QPS (16T) ★ NEW BEST
-               [56, 200,  64, 24,  70, -1.0, -1.0, 0.2]]
+               [56, 200,  64, 24,  70, -1.0, -1.0, 0.2],
+               # ef=200 ncs=64 crinn=70 np=64 srg=0.2: recall=0.9925 @ 954 QPS (16T) ★ high-recall Pareto
+               [64, 200,  64, 24,  70, -1.0, -1.0, 0.2],
+               # ef=200 ncs=64 crinn=80 np=64 srg=0.2: recall=0.9938 @ 962 QPS (16T) ★ highest recall
+               [64, 200,  64, 24,  80, -1.0, -1.0, 0.2]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
