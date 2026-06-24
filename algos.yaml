@@ -358,12 +358,14 @@ float:
             #   np=48 ef=128 crinn=80 rpqgm=0.2 eps=0.05 → 0.9754 @  951 QPS   highest QPS ef=128
             #   np=48 ef=200 ncs=64 psm=24 rpqgm=off     → 0.9913 @  754 QPS (8T); 931 QPS (16T) ★ best recall ≥0.99 high-thread
             #   np=48 ef=200 ncs=64 psm=24 crinn=90           → 0.9901 @ 1039 QPS (16T) ★ QPS>1000 recall ≥0.99
-            #   np=48 ef=200 ncs=64 psm=24 crinn=92           → 0.9901 @ 1052 QPS (16T) ★ QPS>1000 recall ≥0.99
-            #   np=48 ef=200 ncs=64 psm=24 crinn=92 srg=0.2   → 0.9902 @ 1069 QPS (16T) ★ QPS>1000 recall ≥0.99 (NEW BEST)
-            #   np=48 ef=200 ncs=64 psm=24 crinn=92 srg=0.2 feef=0.05 → 0.9902 @ ~1079 QPS (16T) ★ (3-run, ±variance)
-            #   np=48 ef=200 ncs=64 psm=24 crinn=100          → 0.9905 @ 1003 QPS (16T)
-            #   np=40 ef=200 ncs=64 psm=24 crinn=100          → 0.9869 @ 1218 QPS (16T) — recall ceiling 0.987 (np insufficient)
-            #   np=56 ef=200 ncs=64 psm=24 crinn=70           → 0.9913 @  945 QPS (16T) ★ recall+0.0012 over crinn=92
+            #   np=48 ef=200 ncs=64 psm=24 crinn=92                → 0.9901 @ 1052 QPS (16T) ★ QPS>1000 recall ≥0.99
+            #   np=48 ef=200 ncs=64 psm=24 crinn=92 srg=0.2        → 0.9902 @ 1069 QPS (16T) ★ QPS>1000 recall ≥0.99
+            #   np=48 ef=200 ncs=64 psm=24 crinn=92 srg=0.2 feef=0.05 → 0.9902 @ 1073 QPS (16T) (+4 QPS vs srg alone ≈ noise)
+            #   np=48 ef=200 ncs=64 psm=24 crinn=100               → 0.9905 @ 1003 QPS (16T)
+            #   np=40 ef=200 ncs=64 psm=24 crinn=100               → 0.9869 @ 1218 QPS (16T) — recall ceiling 0.987 (np insufficient)
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70                → 0.9913 @  945 QPS (16T) (no srg)
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.15       → 0.9906 @ 1117 QPS (16T) ★ +172 QPS vs no-srg
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9909 @ 1146 QPS (16T) ★ NEW BEST (recall↑+QPS↑)
             #
             # NOTE: np=40 recall ceiling = 0.987 regardless of ef (IVF quantization bound, not beam search)
             - [[16,  60],
@@ -394,14 +396,18 @@ float:
                [48, 200,  64, 24,  90, -1.0],
                # ef=200 ncs=64 crinn=92: QPS>1000 at recall ≥0.99 (16T: 1052 QPS avg)
                [48, 200,  64, 24,  92, -1.0],
-               # ef=200 ncs=64 crinn=92 srg=0.2: recall=0.9902 @ 1069 QPS avg (16T) — NEW BEST
+               # ef=200 ncs=64 crinn=92 srg=0.2: recall=0.9902 @ 1069 QPS avg (16T)
                [48, 200,  64, 24,  92, -1.0, -1.0, 0.2],
-               # ef=200 ncs=64 crinn=92 srg=0.2 feef=0.05: recall=0.9902 @ ~1079 QPS (16T, 3-run)
+               # ef=200 ncs=64 crinn=92 srg=0.2 feef=0.05: recall=0.9902 @ 1073 QPS (16T, +4 QPS ≈ noise)
                [48, 200,  64, 24,  92, -1.0, -1.0, 0.2, 0.05],
                # ef=200 ncs=64 crinn=100: QPS>1000 at recall ≥0.99 (16T: 1003 QPS)
                [48, 200,  64, 24, 100, -1.0],
-               # ef=200 ncs=64 crinn=70 np=56: higher recall ≥0.99 (16T: recall=0.9913 @ 945 QPS)
-               [56, 200,  64, 24,  70, -1.0]]
+               # ef=200 ncs=64 crinn=70 np=56: no-srg baseline (16T: 945 QPS avg, recall=0.9913)
+               [56, 200,  64, 24,  70, -1.0],
+               # ef=200 ncs=64 crinn=70 np=56 srg=0.15: recall=0.9906 @ 1117 QPS (16T) ★ high-recall Pareto
+               [56, 200,  64, 24,  70, -1.0, -1.0, 0.15],
+               # ef=200 ncs=64 crinn=70 np=56 srg=0.2: recall=0.9909 @ 1146 QPS (16T) ★ NEW BEST
+               [56, 200,  64, 24,  70, -1.0, -1.0, 0.2]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
