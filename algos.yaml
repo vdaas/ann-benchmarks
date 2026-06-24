@@ -355,9 +355,11 @@ float:
             #   np=48 ef=128 (auto rpqgm=0.2)            → 0.9806 @  861 QPS ★ best ef=128 QPS
             #   np=48 ef=128 crinn=80 rpqgm=0.2 eps=0.05 → 0.9754 @  951 QPS   highest QPS ef=128
             #   np=48 ef=200 ncs=64 psm=24 rpqgm=off     → 0.9913 @  754 QPS (8T); 931 QPS (16T) ★ best recall ≥0.99 high-thread
-            #   np=48 ef=200 ncs=64 psm=24 crinn=90      → 0.9901 @ 1039 QPS (16T) ★ QPS>1000 recall ≥0.99 (NEW BEST)
+            #   np=48 ef=200 ncs=64 psm=24 crinn=90      → 0.9901 @ 1039 QPS (16T) ★ QPS>1000 recall ≥0.99
+            #   np=48 ef=200 ncs=64 psm=24 crinn=92      → 0.9901 @ 1052 QPS (16T) ★ QPS>1000 recall ≥0.99 (NEW BEST)
             #   np=48 ef=200 ncs=64 psm=24 crinn=100     → 0.9905 @ 1003 QPS (16T)
             #   np=40 ef=200 ncs=64 psm=24 crinn=100     → 0.9869 @ 1218 QPS (16T) — recall ceiling 0.987 (np insufficient)
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70      → 0.9913 @  945 QPS (16T) ★ recall+0.0012 over crinn=92
             #
             # NOTE: np=40 recall ceiling = 0.987 regardless of ef (IVF quantization bound, not beam search)
             - [[16,  60],
@@ -384,10 +386,14 @@ float:
                [48, 128, 128, 24, 80, 0.2, 0.05],
                # ef=200 ncs=64: best recall ≥0.99 at high thread counts (16T: 931 QPS)
                [48, 200,  64, 24,  0, -1.0],
-               # ef=200 ncs=64 crinn=90: QPS>1000 at recall ≥0.99 (16T: 1039 QPS avg) — NEW BEST
+               # ef=200 ncs=64 crinn=90: QPS>1000 at recall ≥0.99 (16T: 1039 QPS avg)
                [48, 200,  64, 24,  90, -1.0],
+               # ef=200 ncs=64 crinn=92: QPS>1000 at recall ≥0.99 (16T: 1052 QPS avg) — NEW BEST
+               [48, 200,  64, 24,  92, -1.0],
                # ef=200 ncs=64 crinn=100: QPS>1000 at recall ≥0.99 (16T: 1003 QPS)
-               [48, 200,  64, 24, 100, -1.0]]
+               [48, 200,  64, 24, 100, -1.0],
+               # ef=200 ncs=64 crinn=70 np=56: higher recall ≥0.99 (16T: recall=0.9913 @ 945 QPS)
+               [56, 200,  64, 24,  70, -1.0]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
