@@ -354,6 +354,8 @@ float:
             #   np=48 ef=128 crinn=80 rpqgm=off          → 0.9902 @  820 QPS ★ best recall ≥0.99
             #   np=48 ef=128 (auto rpqgm=0.2)            → 0.9806 @  861 QPS ★ best ef=128 QPS
             #   np=48 ef=128 crinn=80 rpqgm=0.2 eps=0.05 → 0.9754 @  951 QPS   highest QPS ef=128
+            #   np=48 ef=200 ncs=64 psm=24 rpqgm=off     → 0.9913 @  754 QPS (8T); 931 QPS (16T) ★ best recall ≥0.99 high-thread
+            #   np=48 ef=200 ncs=64 psm=24 crinn=100     → 0.9905 @ 1003 QPS (16T) ★ QPS>1000 recall ≥0.99
             - [[16,  60],
                [20,  60],
                [20,  60,  96],
@@ -375,7 +377,11 @@ float:
                # ef=128 auto (rpqgm=0.2) — recall~0.98 best QPS
                [48, 128],
                # ef=128 + te_fp16=0.05: +10.9% QPS at recall=0.9754
-               [48, 128, 128, 24, 80, 0.2, 0.05]]
+               [48, 128, 128, 24, 80, 0.2, 0.05],
+               # ef=200 ncs=64: best recall ≥0.99 at high thread counts (16T: 931 QPS)
+               [48, 200,  64, 24,  0, -1.0],
+               # ef=200 ncs=64 crinn=100: QPS>1000 at recall ≥0.99 (16T: 1003 QPS)
+               [48, 200,  64, 24, 100, -1.0]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
@@ -1602,7 +1608,14 @@ float:
           query-args:
             # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
             # GloVe-100 K=1024 ncs sweep: ncs < 128 cuts seeding cost proportionally.
+            # IMPORTANT: ncs=128 has recall ceiling ~0.86. Use ncs≥512 for recall >0.90.
             # Baseline (no ncs, fp16): 0.7751@39926, 0.9008@8873, 0.9394@5040, 0.9882@1061
+            # GloVe-100 K=1024 ACTUAL (16T, ncs=512):
+            #   np=64  ef=400  → 0.9009@2704
+            #   np=128 ef=800  → 0.9390@1307
+            #   np=192 ef=1200 → 0.9577@890
+            #   np=256 ef=2000 → 0.9680@677
+            #   np=384 ef=3000 → 0.9779@457
             # ncs=16 ultra-high QPS (50K-80K): ncs reduces 8x overhead vs default
             - [[0.0, -1.0,  1, 0, 0,  10, 0, -1.0, 0, 0, 0, 16],
                [0.0, -1.0,  1, 0, 0,  20, 0, -1.0, 0, 0, 0, 16],
@@ -1617,13 +1630,20 @@ float:
                [0.0, -1.0,  8, 0, 0, 100, 0, -1.0, 0, 0, 0, 64],
                [0.0, -1.0, 16, 0, 0,  50, 0, -1.0, 0, 0, 0, 64],
                [0.0, -1.0, 16, 0, 0, 100, 0, -1.0, 0, 0, 0, 64],
-               # ncs=128: default behavior (reference Pareto)
+               # ncs=128: default behavior (reference Pareto, recall ceiling ~0.86)
                [0.0, -1.0, 16, 0, 0, 100, 0, -1.0, 0, 0, 0, 128],
                [0.0, -1.0, 32, 0, 0, 100, 0, -1.0, 0, 0, 0, 128],
                [0.0, -1.0, 32, 0, 0, 200, 0, -1.0, 0, 0, 0, 128],
                [0.0, -1.0, 64, 0, 0, 200, 0, -1.0, 0, 0, 0, 128],
                [0.0, -1.0, 64, 0, 0, 400, 0, -1.0, 0, 0, 0, 128],
-               [0.0, -1.0, 128, 0, 0, 400, 0, -1.0, 0, 0, 0, 128]]
+               [0.0, -1.0, 128, 0, 0, 400, 0, -1.0, 0, 0, 0, 128],
+               # ncs=512: high-recall (1K-3K QPS), recall 0.90-0.97 (16T measured)
+               [0.0, -1.0,  32, 0, 0, 200, 0, -1.0, 0, 0, 0, 512],
+               [0.0, -1.0,  64, 0, 0, 400, 0, -1.0, 0, 0, 0, 512],
+               [0.0, -1.0, 128, 0, 0, 800, 0, -1.0, 0, 0, 0, 512],
+               [0.0, -1.0, 192, 0, 0, 1200, 0, -1.0, 0, 0, 0, 512],
+               [0.0, -1.0, 256, 0, 0, 2000, 0, -1.0, 0, 0, 0, 512],
+               [0.0, -1.0, 384, 0, 0, 3000, 0, -1.0, 0, 0, 0, 512]]
         a140-ang-k1024-rf2:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
