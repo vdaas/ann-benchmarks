@@ -55,6 +55,8 @@ class ArcFlare(BaseANN):
         self._crinn_no_improve_limit = 0
         self._beam_rpq_filter_k     = 0
         self._beam_rpq_gate_margin  = -1.0
+        self._seed_rpq_gate         = -1.0
+        self._fp16_early_exit_factor = -1.0
         self.name = 'ArcFlare'
 
     def fit(self, X):
@@ -148,7 +150,7 @@ class ArcFlare(BaseANN):
             print('ArcFlare: index saved to', index_dir)
 
     def set_query_arguments(self, *args):
-        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto]
+        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1]
         #   np    - n_probe: cluster probes (required)
         #   ef    - beam size (required)
         #   ncs   - n_cluster_seeds: seeds per probe (default 128)
@@ -156,6 +158,8 @@ class ArcFlare(BaseANN):
         #   crinn - crinn_no_improve_limit: 0 means C++ auto (ef*2/3) (default 0)
         #   rpqgm - beam_rpq_gate_margin: -1 = off, auto = 0.3 (ef<80) / 0.2 (ef>=80)
         #   eps   - term_eps_fp16: -1 = off, auto = 0.3 (ef<80, lossless) / -1 (ef>=80)
+        #   srg   - seed_rpq_gate: RPQ score threshold to early-filter seeds (-1 = off)
+        #   feef  - fp16_early_exit_factor: fp16 beam early-exit factor (-1 = off)
         if len(args) == 1 and isinstance(args[0], (list, tuple)):
             params = list(args[0])
         else:
@@ -169,12 +173,16 @@ class ArcFlare(BaseANN):
                                        else (0.3 if self._ef < 80 else 0.2)
         self._term_eps_fp16          = float(params[6]) if len(params) > 6 \
                                        else (0.3 if self._ef < 80 else -1.0)
+        self._seed_rpq_gate          = float(params[7]) if len(params) > 7 else -1.0
+        self._fp16_early_exit_factor = float(params[8]) if len(params) > 8 else -1.0
         crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
         rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
         eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
-        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={})'.format(
+        srg_disp   = '{:.2f}'.format(self._seed_rpq_gate) if self._seed_rpq_gate >= 0 else 'off'
+        feef_disp  = '{:.2f}'.format(self._fp16_early_exit_factor) if self._fp16_early_exit_factor >= 0 else 'off'
+        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={})'.format(
             self._n_probe, self._ef, self._n_cluster_seeds_s,
-            self._presort_seed_mult, crinn_disp, rpqgm_disp, eps_disp)
+            self._presort_seed_mult, crinn_disp, rpqgm_disp, eps_disp, srg_disp, feef_disp)
 
     def query(self, v, n):
         return self._index.search(
@@ -187,6 +195,8 @@ class ArcFlare(BaseANN):
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
             beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
             term_eps_fp16            = float(self._term_eps_fp16),
+            seed_rpq_gate            = float(self._seed_rpq_gate),
+            fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
         )
 
     def batch_query(self, X, n):
@@ -201,6 +211,8 @@ class ArcFlare(BaseANN):
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
             beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
             term_eps_fp16            = float(self._term_eps_fp16),
+            seed_rpq_gate            = float(self._seed_rpq_gate),
+            fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
         )
 
     def get_batch_results(self):
