@@ -509,6 +509,27 @@ float:
                [56, 180, 72, 20, 70, -1.0, -1.0, 0.20],
                [64, 160, 72, 20, 70, -1.0],
                [72, 160, 72, 20, 70, -1.0]]
+        e96-k256-a150-rebuild-rpq128-sq8-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq8'}]
+          query-args:
+            # SQ8 beam (beam_mode="sq8") M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Pareto (16T, sq8Dist32x 2×sq8Dist16x, ncs=72, psm=20):
+            #   np=56 ef=140 crinn=60 srg=-1.0 [32x]: recall=0.9903 @QPS=1425 ★ BEST QPS recall≥0.99 (+44% vs fp16 ~986)
+            #   np=56 ef=150 crinn=60 srg=-1.0 [32x]: recall=0.9906 @QPS=1411 ★
+            #   np=60 ef=125 crinn=60 srg=-1.0 [32x]: recall=0.9901 @QPS=1367 ★
+            # NOTE: SQ8 requires ef≥140 @ np=56 for recall≥0.99 (SQ4 requires ef=106 — more quantization error)
+            # NOTE: SQ8 = 2x DRAM bandwidth vs SQ4 → lower QPS but per-node precision closer to fp16
+            # NOTE: SQ8 QPS=1425 vs SQ4 QPS=1864 (M=96, recall≥0.99): SQ4 +31% faster than SQ8
+            # NOTE: sq8Dist32x = 2×sq8Dist16x (acc+ssy zmm pressure prevents native 32-way kernel)
+            # NOTE: SQ2 beam recall≤0.74 even at np=96 ef=240 (2-bit quantization limit — not viable for recall≥0.99)
+            - [[56, 140, 72, 20, 60, -1.0, -1.0, -1.0],
+               [56, 150, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 125, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 130, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 140, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 160, 72, 20, 70, -1.0],
+               [64, 140, 72, 20, 60, -1.0],
+               [64, 160, 72, 20, 70, -1.0]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
