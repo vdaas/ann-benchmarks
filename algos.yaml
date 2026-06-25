@@ -453,7 +453,8 @@ float:
           query-args:
             # True SQ4 beam (beam_mode="sq4") GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
             # Pareto (16T, beam_mode="sq4", ncs=72):
-            #   np=56 ef=106 crinn=60 srg=0.10: recall=0.9904 @QPS=1685 ★ BEST QPS recall≥0.99 (+47% vs fp16-only 1146, +16% vs fp16-beam 1449)
+            #   np=56 ef=106 crinn=60 srg=0.10 psm=24 [32x]: recall=0.9904 @QPS=1684 ★ BEST QPS recall≥0.99 (+47% vs fp16-only 1146, +16% vs fp16-beam 1449)
+            #   np=56 ef=106 crinn=60 srg=0.10 psm=20 [32x]: recall=0.9900 @QPS=1702 ★ psm=20 +1.1% QPS (marginal)
             #   np=56 ef=120 crinn=60 srg=0.10: recall=0.9900 @QPS=1632 (pre-prefetch baseline, now dominated)
             #   np=56 ef=140 crinn=60 srg=0.10: recall=0.9900 @QPS=1614 ★ safer ef margin
             #   np=56 ef=160 crinn=60 srg=0.10: recall=0.9902 @QPS=1586 ★ safer recall margin
@@ -482,31 +483,32 @@ float:
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4'}]
           query-args:
             # True SQ4 beam (beam_mode="sq4") M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
-            # Pareto (16T, beam_mode="sq4", ncs=72):
-            #   np=56 ef=106 crinn=60 srg=0.07: recall=0.9910 @QPS=1750 ★ BEST (vis-opt+srg; M=128: 0.9904@1700, +2.9%)
-            #   np=56 ef=106 crinn=60 srg=0.10: recall=0.9909 @QPS=1747
+            # Pareto (16T, beam_mode="sq4", ncs=72, psm=20):
+            #   np=56 ef=106 crinn=60 srg=0.07 [32x]: recall=0.9905 @QPS=1788 ★ BEST (vis-opt+srg; M=128: 0.9904@1684, +6.2%)
+            #   np=56 ef=106 crinn=60 srg=0.10 [32x]: recall=0.9909 @QPS~1780
             #   np=56 ef=106 crinn=50 srg=0.10: recall=0.9900 @QPS=1738 (high variance, median=1524)
-            #   np=52 ef=106 crinn=60 srg=-1.0: recall=0.9902 @QPS=1793 ★ FASTEST (np reduction, no SRG overhead)
+            #   np=52 ef=106 crinn=60 srg=-1.0 [32x]: recall=0.9902 @QPS=1836 ★ FASTEST (no SRG overhead)
             #   np=52 ef=102 crinn=60 srg=-1.0: recall=0.9900 @QPS~1793 ★ (ef=102 OK for M=96)
             # NOTE: M=96 allows crinn=50 at recall≥0.99 (M=128 requires crinn≥60 for recall≥0.99)
             # NOTE: M=96 minimum ef is 102 (M=128 minimum ef is 106 for reliable recall≥0.99)
             # NOTE: +3-5% QPS over M=128 at same recall — fewer edges per node reduces SQ4 DRAM bandwidth
             # NOTE: srg=0.07 is optimal for np=56 (srg sweep: 0.05→1743, 0.07→1740, 0.10→1721, off→1686)
-            # NOTE: vis_list lazy-clear optimization +1-2% QPS (avoids 1.25MB memset per query)
-            - [[56, 106, 72, 24, 60, -1.0, -1.0, 0.07],
-               [52, 106, 72, 24, 60, -1.0, -1.0, -1.0],
-               [52, 102, 72, 24, 60, -1.0, -1.0, -1.0],
-               [56, 106, 72, 24, 60, -1.0, -1.0, 0.10],
-               [56, 106, 72, 24, 50, -1.0, -1.0, 0.10],
-               [56, 102, 72, 24, 60, -1.0, -1.0, 0.07],
-               [56, 104, 72, 24, 60, -1.0, -1.0, 0.07],
-               [56, 120, 72, 24, 60, -1.0, -1.0, 0.10],
-               [56, 140, 72, 24, 60, -1.0, -1.0, 0.10],
-               [56, 160, 72, 24, 60, -1.0, -1.0, 0.10],
-               [56, 160, 72, 24, 70, -1.0, -1.0, 0.20],
-               [56, 180, 72, 24, 70, -1.0, -1.0, 0.20],
-               [64, 160, 72, 24, 70, -1.0],
-               [72, 160, 72, 24, 70, -1.0]]
+            # NOTE: vis_list lazy-clear +1-2% QPS; psm=20 +0.5% QPS vs psm=24
+            # NOTE: sq4Dist32x (32x flush): M=96 6→3 flushes, M=128 8→4 flushes
+            - [[56, 106, 72, 20, 60, -1.0, -1.0, 0.07],
+               [52, 106, 72, 20, 60, -1.0, -1.0, -1.0],
+               [52, 102, 72, 20, 60, -1.0, -1.0, -1.0],
+               [56, 106, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 106, 72, 20, 50, -1.0, -1.0, 0.10],
+               [56, 102, 72, 20, 60, -1.0, -1.0, 0.07],
+               [56, 104, 72, 20, 60, -1.0, -1.0, 0.07],
+               [56, 120, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 140, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 20, 70, -1.0, -1.0, 0.20],
+               [56, 180, 72, 20, 70, -1.0, -1.0, 0.20],
+               [64, 160, 72, 20, 70, -1.0],
+               [72, 160, 72, 20, 70, -1.0]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
