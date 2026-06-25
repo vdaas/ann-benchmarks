@@ -451,22 +451,23 @@ float:
         e128-k256-a150-rebuild-rpq128-sq4-beam:
           args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4'}]
           query-args:
-            # True SQ4 beam (beam_mode="sq4") GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm]
-            # Pareto (16T, beam_mode="sq4", ncs=72, srg=off):
-            #   np=56 ef=160 crinn=60: recall=0.9902 @QPS=1561 ★ BEST QPS recall≥0.99 (+36% vs fp16-only 1146, +8% vs fp16-beam 1449)
-            #   np=56 ef=160 crinn=70: recall=0.9912 @QPS=1530 ★
-            #   np=56 ef=180 crinn=60: recall=0.9903 @QPS=1550 ★
-            #   np=56 ef=180 crinn=70: recall=0.9913 @QPS=1520 ★
-            #   np=56 ef=160 crinn=100: recall=0.9926 @QPS=1450 ★ higher recall
-            #   np=64 ef=160 crinn=70: recall=0.9930 @QPS=1392 ★ high-recall
+            # True SQ4 beam (beam_mode="sq4") GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Pareto (16T, beam_mode="sq4", ncs=72, tail-insert8):
+            #   np=56 ef=120 crinn=60 srg=0.10: recall=0.9900 @QPS=1632 ★ BEST QPS recall≥0.99 (+43% vs fp16-only 1146, +13% vs fp16-beam 1449)
+            #   np=56 ef=140 crinn=60 srg=0.10: recall=0.9900 @QPS=1614 ★ safer ef margin
+            #   np=56 ef=160 crinn=60 srg=0.10: recall=0.9902 @QPS=1586 ★ safer recall margin
+            #   np=56 ef=160 crinn=70 srg=0.20: recall=0.9914 @QPS=1519 ★ high-recall
+            #   np=56 ef=160 crinn=100:          recall=0.9926 @QPS=1450 ★ very high recall
+            #   np=64 ef=160 crinn=70:           recall=0.9930 @QPS=1370 ★ high-recall
             # NOTE: np=48 ef=180~350 all recall<0.99 for SQ4 beam — minimum np=56
-            # NOTE: crinn=60 highest QPS (small margin); crinn=70 safer recall
-            - [[56, 160, 72, 24, 60, -1.0],
-               [56, 160, 72, 24, 70, -1.0],
-               [56, 180, 72, 24, 60, -1.0],
-               [56, 180, 72, 24, 70, -1.0],
-               [56, 200, 72, 24, 60, -1.0],
-               [56, 200, 72, 24, 70, -1.0],
+            # NOTE: srg=0.10 optimal for crinn=60; srg=0.20 optimal for crinn=70
+            # NOTE: ef=120 borderline ≥0.99 — re-test after re-indexing
+            - [[56, 120, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 140, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 24, 70, -1.0, -1.0, 0.20],
+               [56, 180, 72, 24, 70, -1.0, -1.0, 0.20],
+               [56, 200, 72, 24, 70, -1.0, -1.0, 0.20],
                [56, 160, 72, 24, 100, -1.0],
                [64, 160, 72, 24, 70, -1.0],
                [64, 180, 72, 24, 70, -1.0],
