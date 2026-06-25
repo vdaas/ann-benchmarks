@@ -36,6 +36,8 @@ class ArcFlare(BaseANN):
         self._saq         = bool(params.get('saq',            False))
         # saq_fp16: SAQ + fp16 beam (AF_SAQ=ON + AF_FP16_BEAM=ON + AF_SQ8=ON + AF_SOAR=OFF)
         self._saq_fp16    = bool(params.get('saq_fp16',       False))
+        # beam_mode: "auto" (fp16 if available), "fp16", "sq8", "sq4", "sq2"
+        self._beam_mode   = str(params.get('beam_mode',       'auto'))
         # Query-time defaults
         self._gamma_enq           = 0.20
         self._gamma_term          = 0.40
@@ -202,6 +204,7 @@ class ArcFlare(BaseANN):
             seed_rpq_gate            = float(self._seed_rpq_gate),
             fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
             weighted_seed_budget     = bool(self._weighted_seed_budget),
+            beam_mode                = str(self._beam_mode),
         )
 
     def batch_query(self, X, n):
@@ -219,6 +222,7 @@ class ArcFlare(BaseANN):
             seed_rpq_gate            = float(self._seed_rpq_gate),
             fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
             weighted_seed_budget     = bool(self._weighted_seed_budget),
+            beam_mode                = str(self._beam_mode),
         )
 
     def get_batch_results(self):
