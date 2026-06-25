@@ -452,8 +452,9 @@ float:
           args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4'}]
           query-args:
             # True SQ4 beam (beam_mode="sq4") GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
-            # Pareto (16T, beam_mode="sq4", ncs=72, tail-insert8):
-            #   np=56 ef=120 crinn=60 srg=0.10: recall=0.9900 @QPS=1632 ★ BEST QPS recall≥0.99 (+43% vs fp16-only 1146, +13% vs fp16-beam 1449)
+            # Pareto (16T, beam_mode="sq4", ncs=72):
+            #   np=56 ef=106 crinn=60 srg=0.10: recall=0.9904 @QPS=1685 ★ BEST QPS recall≥0.99 (+47% vs fp16-only 1146, +16% vs fp16-beam 1449)
+            #   np=56 ef=120 crinn=60 srg=0.10: recall=0.9900 @QPS=1632 (pre-prefetch baseline, now dominated)
             #   np=56 ef=140 crinn=60 srg=0.10: recall=0.9900 @QPS=1614 ★ safer ef margin
             #   np=56 ef=160 crinn=60 srg=0.10: recall=0.9902 @QPS=1586 ★ safer recall margin
             #   np=56 ef=160 crinn=70 srg=0.20: recall=0.9914 @QPS=1519 ★ high-recall
@@ -461,8 +462,11 @@ float:
             #   np=64 ef=160 crinn=70:           recall=0.9930 @QPS=1370 ★ high-recall
             # NOTE: np=48 ef=180~350 all recall<0.99 for SQ4 beam — minimum np=56
             # NOTE: srg=0.10 optimal for crinn=60; srg=0.20 optimal for crinn=70
-            # NOTE: ef=120 borderline ≥0.99 — re-test after re-indexing
-            - [[56, 120, 72, 24, 60, -1.0, -1.0, 0.10],
+            # NOTE: ef=106 minimum reliable ef for recall≥0.99; ef=102-104 drops below 0.9900
+            # NOTE: prefetchNeighborsFull + 2nd-level lookahead gives +3.1% QPS vs prefetchNeighbors
+            # NOTE: beam_rpq_filter_k>0 enables RPQ top-K pre-filter for SQ4 beam (disabled by default)
+            - [[56, 106, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 120, 72, 24, 60, -1.0, -1.0, 0.10],
                [56, 140, 72, 24, 60, -1.0, -1.0, 0.10],
                [56, 160, 72, 24, 60, -1.0, -1.0, 0.10],
                [56, 160, 72, 24, 70, -1.0, -1.0, 0.20],
@@ -474,6 +478,29 @@ float:
                [64, 200, 72, 24, 70, -1.0],
                [72, 160, 72, 24, 70, -1.0],
                [72, 200, 72, 24, 70, -1.0]]
+        e96-k256-a150-rebuild-rpq128-sq4-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4'}]
+          query-args:
+            # True SQ4 beam (beam_mode="sq4") M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Pareto (16T, beam_mode="sq4", ncs=72):
+            #   np=56 ef=106 crinn=60 srg=0.10: recall=0.9909 @QPS=1734 ★ BEST RECALL (M=128: recall=0.9904 @QPS=1685, M=96 +3%)
+            #   np=56 ef=106 crinn=50 srg=0.10: recall=0.9900 @QPS=1765 (high variance, median=1524)
+            #   np=56 ef=102 crinn=60 srg=0.10: recall=0.9907 @QPS=1717 ★ (ef=102 OK for M=96; M=128 requires ef≥106)
+            #   np=56 ef=104 crinn=60 srg=0.10: recall=0.9910 @QPS=1714 ★
+            # NOTE: M=96 allows crinn=50 at recall≥0.99 (M=128 requires crinn≥60 for recall≥0.99)
+            # NOTE: M=96 minimum ef is 102 (M=128 minimum ef is 106 for reliable recall≥0.99)
+            # NOTE: +3-5% QPS over M=128 at same recall — fewer edges per node reduces SQ4 DRAM bandwidth
+            - [[56, 106, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 106, 72, 24, 50, -1.0, -1.0, 0.10],
+               [56, 102, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 104, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 120, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 140, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 24, 70, -1.0, -1.0, 0.20],
+               [56, 180, 72, 24, 70, -1.0, -1.0, 0.20],
+               [64, 160, 72, 24, 70, -1.0],
+               [72, 160, 72, 24, 70, -1.0]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
