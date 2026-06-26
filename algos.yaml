@@ -534,19 +534,29 @@ float:
             # Uses per-node min/range encoding (unsigned nibbles [0,15]) vs symmetric [-7,7].
             # Quantization error: (max-min)/15 vs 2*max/7 — ~4x improvement in worst-case error.
             # Benchmark results (2026-06-26, routing-pq-improve asym SDK, GIST-960 ASYM index):
-            #   np=52 ef=130 crinn=45 ncs=128 psm=24 nofeef: recall=0.9914 @QPS=2031 ±81  ★★ BEST (+7.1% vs sym feef@2031)
-            #   np=52 ef=130 crinn=45 ncs=128 psm=24 feef=0.20: recall=0.9912 @QPS=1790 (-11.9% — feef wrong scale for asym)
-            #   np=52 ef=110 crinn=38 ncs=128 psm=24 feef=0.20: recall=0.9902 @QPS=1935 (feef borderline)
-            #   np=48 ef=130 crinn=45 ncs=128 psm=24 feef=0.20: recall=0.9900 @QPS=1870
+            #   np=52 ef=130 crinn=45 ncs=128 psm=24 nofeef: recall=0.9914 @QPS=2031 ±81  (+7.1% vs sym feef@2031)
             # NOTE: feef is counter-productive with asym SQ4 — scale mismatch causes wrong threshold (-12% QPS)
-            # NOTE: asym nofeef > sym feef: quantization improvement alone drives +7.1% QPS at recall≥0.99
             # NOTE: sq4_asym requires gen_sq4sq2 rebuild with routing-pq-improve SDK to add sq4_min_ to sq4.bin
-            - [[52, 130, 128, 24, 45, -1.0, -1.0, -1.0],
-               [52, 120, 128, 24, 40, -1.0, -1.0, -1.0],
-               [48, 130, 128, 24, 45, -1.0, -1.0, -1.0],
-               [52, 110, 128, 24, 38, -1.0, -1.0, -1.0],
-               [56, 130, 128, 24, 45, -1.0, -1.0, -1.0],
-               [52, 140, 128, 24, 50, -1.0, -1.0, -1.0]]
+            # NOTE: AoS sq4_meta (max/norm/min/inv15 interleaved 16B) reduces sq4Dist32x cache miss (+5.7% QPS)
+            # NOTE: norm=||x_dec||² (quantized) not ||x||² (true) — self-consistent distance kernel
+            # NOTE: inv15=range/15 precomputed in SQ4Meta eliminates hot-path division (+0.4% QPS)
+            # NOTE: srg=0.10 critical: +8-10% QPS; psm=22 optimal (+0.5% recall, +1% QPS vs psm=20)
+            # Post-AoS+inv15+prefetch results (2026-06-26, 7-run median):
+            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2270 (2259 med) ★★ BEST (+11.3% vs 2031)
+            #   np=52 ef=130 crinn=42 ncs=128 psm=22 srg=0.10: recall=0.9910 @QPS=2184 (2049 med)  ★ BEST recall
+            #   np=52 ef=130 crinn=36 ncs=128 psm=22 srg=0.12: recall=0.9900 @QPS=2254 (2181 med)  high-QPS/low-crinn
+            #   np=52 ef=130 crinn=45 ncs=128 psm=22 srg=0.10: recall=0.9910 @QPS=2241 (2099 med)  ref AoS-era
+            #   np=56 ef=160 crinn=60 ncs=128 psm=20 srg=0.10: recall=0.9934 @QPS=1993              high recall target
+            - [[52, 130, 128, 22, 40, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 42, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 38, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 36, -1.0, -1.0, 0.12],
+               [54, 115, 128, 22, 36, -1.0, -1.0, 0.10],
+               [52, 130, 128, 20, 45, -1.0, -1.0, 0.10],
+               [56, 130, 128, 20, 45, -1.0, -1.0, 0.10],
+               [56, 160, 128, 20, 60, -1.0, -1.0, 0.10],
+               [48, 130, 128, 22, 40, -1.0, -1.0, 0.10],
+               [52, 110, 128, 22, 36, -1.0, -1.0, 0.10]]
         e96-k256-a150-rebuild-rpq128-sq8-beam:
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq8'}]
           query-args:
