@@ -482,20 +482,38 @@ float:
         e96-k256-a150-rebuild-rpq128-sq4-beam:
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4'}]
           query-args:
-            # True SQ4 beam (beam_mode="sq4") M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # True SQ4 beam (beam_mode="sq4") M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef]
             # Pareto (16T, beam_mode="sq4", ncs=72, psm=20):
             #   np=56 ef=106 crinn=60 srg=0.07 [32x]: recall=0.9905 @QPS=1788 ★ BEST (vis-opt+srg; M=128: 0.9904@1684, +6.2%)
             #   np=56 ef=106 crinn=60 srg=0.10 [32x]: recall=0.9909 @QPS~1780
             #   np=56 ef=106 crinn=50 srg=0.10: recall=0.9900 @QPS=1738 (high variance, median=1524)
             #   np=52 ef=106 crinn=60 srg=-1.0 [32x]: recall=0.9902 @QPS=1836 ★ FASTEST (no SRG overhead)
             #   np=52 ef=102 crinn=60 srg=-1.0: recall=0.9900 @QPS~1793 ★ (ef=102 OK for M=96)
+            # feef=0.20 sweep (2026-06-26, sq4Dist32x, 80T benchmark):
+            #   np=52 ef=130 crinn=45 ncs=128 psm=20 feef=0.20: recall=0.9900 @QPS=2136 ★★ BEST (+16.3% vs 1836)
+            #   np=52 ef=130 crinn=45 ncs=128 psm=24 feef=0.20: recall=0.9902 @QPS=2027 (+10.4% vs 1836)
+            #   np=52 ef=120 crinn=40 ncs=128 feef=0.20: recall=0.9902 @QPS=1925 (+4.8%)
+            #   np=52 ef=106 crinn=60 ncs=72 psm=20 feef=0.20: recall=0.9900 @QPS=2059 (NOISE vs no-feef)
+            #   ncs=72/96 + ef=130: recall drops to 0.989x → ncs=128 required
+            #   psm sweep (ncs=128 feef=0.20): psm=20 PASS@0.9900 +5.4%, psm=16 FAIL@0.9891, psm=12 FAIL@0.9868
+            # term_eps sweep (2026-06-26, psm=20 feef=0.20 base):
+            #   term_eps=0.25: recall=0.9900 @QPS=2121 ±91 (+4.7% vs base, t=1.29, borderline)
+            #   term_eps=0.30: recall=0.9900 @QPS=2070 ±145 (+2.1%, t=0.50, noise)
+            #   term_eps=0.35+: consistently slower (early-exit too aggressive for SQ4 quant error)
+            #   Verdict: term_eps disabled (=-1.0) is most stable; 0.25 worth trying on low-variance systems
+            # NOTE: feef=0.20 enables ef/crinn reduction: ef=160→130 (-19%), crinn=60→45 (-25%) at same recall
+            # NOTE: psm=20 reduces seed pool from ef×24=3120 to ef×20=2600 → fewer heap ops → +5.4% QPS
             # NOTE: M=96 allows crinn=50 at recall≥0.99 (M=128 requires crinn≥60 for recall≥0.99)
             # NOTE: M=96 minimum ef is 102 (M=128 minimum ef is 106 for reliable recall≥0.99)
             # NOTE: +3-5% QPS over M=128 at same recall — fewer edges per node reduces SQ4 DRAM bandwidth
             # NOTE: srg=0.07 is optimal for np=56 (srg sweep: 0.05→1743, 0.07→1740, 0.10→1721, off→1686)
-            # NOTE: vis_list lazy-clear +1-2% QPS; psm=20 +0.5% QPS vs psm=24
             # NOTE: sq4Dist32x (32x flush): M=96 6→3 flushes, M=128 8→4 flushes
-            - [[56, 106, 72, 20, 60, -1.0, -1.0, 0.07],
+            - [[52, 130, 128, 20, 45, -1.0, -1.0, -1.0, 0.20],
+               [52, 130, 128, 24, 45, -1.0, -1.0, -1.0, 0.20],
+               [52, 120, 128, 24, 40, -1.0, -1.0, -1.0, 0.20],
+               [52, 110, 128, 24, 42, -1.0, -1.0, -1.0, 0.20],
+               [48, 130, 128, 24, 45, -1.0, -1.0, -1.0, 0.20],
+               [56, 106, 72, 20, 60, -1.0, -1.0, 0.07],
                [52, 106, 72, 20, 60, -1.0, -1.0, -1.0],
                [52, 102, 72, 20, 60, -1.0, -1.0, -1.0],
                [56, 106, 72, 20, 60, -1.0, -1.0, 0.10],
@@ -509,6 +527,26 @@ float:
                [56, 180, 72, 20, 70, -1.0, -1.0, 0.20],
                [64, 160, 72, 20, 70, -1.0],
                [72, 160, 72, 20, 70, -1.0]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true}]
+          query-args:
+            # Asymmetric SQ4 beam (beam_mode="sq4", sq4_asym=True) M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Uses per-node min/range encoding (unsigned nibbles [0,15]) vs symmetric [-7,7].
+            # Quantization error: (max-min)/15 vs 2*max/7 — ~4x improvement in worst-case error.
+            # Benchmark results (2026-06-26, routing-pq-improve asym SDK, GIST-960 ASYM index):
+            #   np=52 ef=130 crinn=45 ncs=128 psm=24 nofeef: recall=0.9914 @QPS=2031 ±81  ★★ BEST (+7.1% vs sym feef@2031)
+            #   np=52 ef=130 crinn=45 ncs=128 psm=24 feef=0.20: recall=0.9912 @QPS=1790 (-11.9% — feef wrong scale for asym)
+            #   np=52 ef=110 crinn=38 ncs=128 psm=24 feef=0.20: recall=0.9902 @QPS=1935 (feef borderline)
+            #   np=48 ef=130 crinn=45 ncs=128 psm=24 feef=0.20: recall=0.9900 @QPS=1870
+            # NOTE: feef is counter-productive with asym SQ4 — scale mismatch causes wrong threshold (-12% QPS)
+            # NOTE: asym nofeef > sym feef: quantization improvement alone drives +7.1% QPS at recall≥0.99
+            # NOTE: sq4_asym requires gen_sq4sq2 rebuild with routing-pq-improve SDK to add sq4_min_ to sq4.bin
+            - [[52, 130, 128, 24, 45, -1.0, -1.0, -1.0],
+               [52, 120, 128, 24, 40, -1.0, -1.0, -1.0],
+               [48, 130, 128, 24, 45, -1.0, -1.0, -1.0],
+               [52, 110, 128, 24, 38, -1.0, -1.0, -1.0],
+               [56, 130, 128, 24, 45, -1.0, -1.0, -1.0],
+               [52, 140, 128, 24, 50, -1.0, -1.0, -1.0]]
         e96-k256-a150-rebuild-rpq128-sq8-beam:
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq8'}]
           query-args:

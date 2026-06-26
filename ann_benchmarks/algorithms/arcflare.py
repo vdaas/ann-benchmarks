@@ -28,6 +28,8 @@ class ArcFlare(BaseANN):
         self._sq8_beam    = bool(params.get('sq8_beam',       False))
         # sq4_beam: use AF_SQ4=ON, AF_SQ8=ON, AF_FP16_BEAM=OFF build (~4x smaller beam footprint)
         self._sq4_beam    = bool(params.get('sq4_beam',       False))
+        # sq4_asym: asymmetric SQ4 encoding (per-node min/range, unsigned nibbles [0,15]) — adds '-asym' index suffix
+        self._sq4_asym    = bool(params.get('sq4_asym',       False))
         # sq2_beam: use AF_SQ2=ON, AF_SQ8=ON, AF_FP16_BEAM=OFF build (~8x smaller beam footprint)
         self._sq2_beam    = bool(params.get('sq2_beam',       False))
         # bapq: variance-sorted RoutingPQ subspace assignment (AF_BAPQ=ON)
@@ -111,7 +113,7 @@ class ArcFlare(BaseANN):
             'ang' if angular else 'l2',
             '-soar' if self._soar else '',
             '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '',
-            '-saqfp16' if self._saq_fp16 else ('-saq' if self._saq else ('-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4' if self._sq4_beam else '')))))
+            '-saqfp16' if self._saq_fp16 else ('-saq' if self._saq else ('-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4-asym' if (self._sq4_beam and self._sq4_asym) else ('-sq4' if self._sq4_beam else ''))))))
         index_dir = os.path.join(INDEX_DIR, tag)
 
         self._index = arcflare_ext.ArcFlare(
