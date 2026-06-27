@@ -542,12 +542,58 @@ float:
             # NOTE: inv15=range/15 precomputed in SQ4Meta eliminates hot-path division (+0.4% QPS)
             # NOTE: srg=0.10 critical: +8-10% QPS; psm=22 optimal (+0.5% recall, +1% QPS vs psm=20)
             # Post-AoS+inv15+prefetch results (2026-06-26, 7-run median):
-            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2270 (2259 med) ★★ BEST (+11.3% vs 2031)
+            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2270 (2259 med) ★★ BEST recall≥0.99
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2271             ★★ FASTEST (ef=120 minimum viable)
             #   np=52 ef=130 crinn=42 ncs=128 psm=22 srg=0.10: recall=0.9910 @QPS=2184 (2049 med)  ★ BEST recall
             #   np=52 ef=130 crinn=36 ncs=128 psm=22 srg=0.12: recall=0.9900 @QPS=2254 (2181 med)  high-QPS/low-crinn
             #   np=52 ef=130 crinn=45 ncs=128 psm=22 srg=0.10: recall=0.9910 @QPS=2241 (2099 med)  ref AoS-era
             #   np=56 ef=160 crinn=60 ncs=128 psm=20 srg=0.10: recall=0.9934 @QPS=1993              high recall target
-            - [[52, 130, 128, 22, 40, -1.0, -1.0, 0.10],
+            # NOTE: ef=120 is minimum for recall≥0.99 with asym SQ4 (ef=115 drops to 0.989x)
+            # NOTE: crinn=37 with ef=120 saves ~8% search work vs crinn=40 with ef=130
+            # NOTE: M=80 asym SQ4 (arcflare-D960-M80-K256-a1.50-ep32-cs128-gorder-rebuild-l2-rpq128-sq4-asym):
+            #       recall ceiling=0.63 @ np=96 ef=240; fp16 beam recall=0.00 (bapq_perm/saq_rots SDK mismatch).
+            #       M=80 graph quality insufficient for GIST-960 recall≥0.99. M=96 is minimum viable.
+            # AVX2 maddubs optimization (2026-06-26, dot_q_sq4_asym_8x native AVX2 via vpmaddubsw):
+            #   dot_q_sq4_asym_8x: direct maddubs(u8,s8) — no sub_epi8 shift, no (void)q_sum correction
+            #   dot_q_sq4_asym_32x: #else branch uses 4x dot_q_sq4_asym_8x (was: dot_q_sq4_32x + q_sum loop)
+            #   Post-AVX2 maddubs results (2026-06-26, 7-run top-1, local measurement):
+            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2273  ★★ BEST recall≥0.99
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2323  ★★ FASTEST
+            # Official ann-benchmarks batch mode (2026-06-27, run_algorithm.py --runs 7 --batch, 80T, 1000 queries):
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2119  ★★ FASTEST (official)
+            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2073  ★★ BEST (official)
+            # NOTE: official vs local gap ~9% (CPU thermal throttling + OS scheduler over longer test run)
+            # Prefetch optimization (2026-06-27, seeding loop cache-pollution fix + block prefetch):
+            #   REMOVED: routing_pq_norm_sq_ prefetch for use_local_batch path (was issuing ~203K unneeded
+            #     random prefetches/query, polluting cluster_local_blocks_ L2 cache lines)
+            #   ADDED: inner-loop block prefetch: PF_DIST=3 blocks ahead, 2 CL/block (head+512B)
+            #   ADDED: outer-loop probe prefetch: next probe's first 2 blocks, hides inter-probe DRAM latency
+            #   Post-prefetch results (2026-06-27, 7-run max, local 80T):
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2400  ★★ FASTEST (+6.8%)
+            # NOTE: SRG/PSM: srg=0.10 +8-10% QPS; psm=16 optimal (+4% QPS vs psm=22, recall≥0.990 minimum)
+            # NOTE: cap_cluster_members & adaptive_probe_ratio both collapse recall for GIST-960 (K=256,D=960)
+            # NOTE: beam_rpq_filter_k collapses recall at values <96; no gain at 96. Keep at 0.
+            # NOTE: K=4096 recall ceiling=0.904 — cannot reach 0.99. K=256 is the only viable index.
+            # NOTE: np=43 (vs np=52) reduces seeding 17%, psm=16 reduces presort_cap 27% → +10% QPS total
+            # np-ef tradeoff results (2026-06-27, 14-run max, local 80T):
+            # seeding=82% of total time (L3/DRAM bandwidth bound); beam=18%
+            # np=20-30 ef=400: recall ceiling 0.952-0.977 — ef cannot compensate low np (seeding quality is ceiling)
+            #   np=43 ef=152 ncs=128 psm=16 crinn=63: recall=0.9900 @QPS=2418 ★★ NEW BEST (14-run, rcmin=rcmax=0.9900)
+            #   np=43 ef=156 ncs=128 psm=16 crinn=63: recall=0.9900 @QPS=2410 ★★
+            #   np=43 ef=170 ncs=128 psm=16 crinn=63: recall=0.9900 @QPS=2421 prev best
+            #   np=43 ef=170 ncs=128 psm=22 crinn=63: recall=0.9906 @QPS=2355 ★ highest recall@np=43
+            #   np=43 ef=180 ncs=128 psm=16 crinn=67: recall=0.9903 @QPS=2319 ★ safe margin
+            #   np=45 ef=160 ncs=128 psm=22 crinn=60: recall=0.9904 @QPS=2207 ref (was best before np=43 sweep)
+            # NOTE: AVX-512 hardware (Intel Xeon): seeding 2× faster (gpq4_batch_ip_avx512 auto-selected)
+            #       → Amdahl: (82%/2 + 18%) = 59% of current time → QPS ≈ 2418 × 1.69 ≈ 4086 estimated
+            - [[43, 152, 128, 16, 63, -1.0, -1.0, 0.10],
+               [43, 156, 128, 16, 63, -1.0, -1.0, 0.10],
+               [43, 170, 128, 16, 63, -1.0, -1.0, 0.10],
+               [43, 170, 128, 22, 63, -1.0, -1.0, 0.10],
+               [43, 180, 128, 16, 67, -1.0, -1.0, 0.10],
+               [45, 160, 128, 22, 60, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 40, -1.0, -1.0, 0.10],
+               [52, 120, 128, 22, 37, -1.0, -1.0, 0.10],
                [52, 130, 128, 22, 42, -1.0, -1.0, 0.10],
                [52, 130, 128, 22, 38, -1.0, -1.0, 0.10],
                [52, 130, 128, 22, 36, -1.0, -1.0, 0.12],
@@ -557,6 +603,19 @@ float:
                [56, 160, 128, 20, 60, -1.0, -1.0, 0.10],
                [48, 130, 128, 22, 40, -1.0, -1.0, 0.10],
                [52, 110, 128, 22, 36, -1.0, -1.0, 0.10]]
+        e96-k4096-a150-rebuild-rpq128-sq4-asym-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 4096, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true}]
+          query-args:
+            # K=4096 M=96 asymmetric SQ4 beam. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # K=4096 avg cluster size ≈ 1M/4096 ≈ 244 vectors (vs K=256 ≈ 3906)
+            # Build: /tmp/build_k4096_m96.py (PID=3227692, started 2026-06-27)
+            # Index: arcflare-D960-M96-K4096-a1.50-ep32-cs128-gorder-rebuild-l2-rpq128-sq4-asym
+            # Bench: /tmp/bench_k4096.py (run after build completes)
+            # Expected: recall≥0.99 @ np≈400-800, QPS target≥3000
+            # NOTE: K=256 np=52 covers 52/256=20.3% clusters. K=4096 equivalent coverage = 4096*0.203 = 832 probes.
+            #       However recall/np curve is steeper for larger K (finer clusters) — actual np may be lower.
+            # Results TBD (index build in progress)
+            - [[400, 80, 128, 22, 25, -1.0, -1.0, 0.10]]
         e96-k256-a150-rebuild-rpq128-sq8-beam:
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq8'}]
           query-args:
@@ -569,7 +628,8 @@ float:
             # NOTE: SQ8 = 2x DRAM bandwidth vs SQ4 → lower QPS but per-node precision closer to fp16
             # NOTE: SQ8 QPS=1425 vs SQ4 QPS=1864 (M=96, recall≥0.99): SQ4 +31% faster than SQ8
             # NOTE: sq8Dist32x = 2×sq8Dist16x (acc+ssy zmm pressure prevents native 32-way kernel)
-            # NOTE: SQ2 beam recall≤0.74 even at np=96 ef=240 (2-bit quantization limit — not viable for recall≥0.99)
+            # NOTE: SQ2 beam recall≤0.22 on M=96 GIST-960 (updated from ≤0.74 on M=128 symmetric).
+            #       Root cause: D=1024 SNR<1 (quant noise mean=2.28 >> NN dist ~1.4). Fundamentally not viable.
             - [[56, 140, 72, 20, 60, -1.0, -1.0, -1.0],
                [56, 150, 72, 20, 60, -1.0, -1.0, -1.0],
                [60, 125, 72, 20, 60, -1.0, -1.0, -1.0],
