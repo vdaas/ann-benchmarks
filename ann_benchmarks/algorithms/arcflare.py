@@ -86,13 +86,13 @@ class ArcFlare(BaseANN):
         elif self._bapq:
             _BUILD = _WORKTREE + '/build/python_sdk_bapq'
         elif self._sq2_beam:
-            _BUILD = _WORKTREE + '/build/python_sdk_sq2'
+            _BUILD = _MAIN + '/build/python_sdk_sq2'
         elif self._sq4_beam:
-            _BUILD = _WORKTREE + '/build/python_sdk_sq4'
+            _BUILD = _MAIN + '/build/python_sdk_sq4'
         elif self._sq8_beam:
-            _BUILD = _WORKTREE + '/build/python_sdk_fp32_sq8'
+            _BUILD = _MAIN + '/build/python_sdk_fp32_sq8'
         else:
-            _BUILD = _WORKTREE + '/build/python_sdk_fp16'
+            _BUILD = _MAIN + '/build/python_sdk_fp16'
         _loaded = _sys.modules.get('arcflare_ext')
         if _loaded is None or not getattr(_loaded, '__file__', '').startswith(_BUILD):
             _sos = sorted(_glob.glob(_BUILD + '/arcflare_ext*.so'))
@@ -155,7 +155,7 @@ class ArcFlare(BaseANN):
             print('ArcFlare: index saved to', index_dir)
 
     def set_query_arguments(self, *args):
-        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1, wsb=0]
+        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1, wsb=0, fgf=-1]
         #   np    - n_probe: cluster probes (required)
         #   ef    - beam size (required)
         #   ncs   - n_cluster_seeds: seeds per probe (default 128)
@@ -166,10 +166,20 @@ class ArcFlare(BaseANN):
         #   srg   - seed_rpq_gate: RPQ score threshold to early-filter seeds (-1 = off)
         #   feef  - fp16_early_exit_factor: fp16 beam early-exit factor (-1 = off)
         #   wsb   - weighted_seed_budget: allocate more seeds to nearby clusters (0=off, 1=on)
+        #   fgf   - finger_gate_factor: FINGER triangle-inequality gate (-1 = off)
         if len(args) == 1 and isinstance(args[0], (list, tuple)):
             params = list(args[0])
         else:
             params = list(args)
+        # Backward-compat: old 6/10/12-element format [ge, gt, np, mv, rf, ef, ...]
+        # detected by ge==0.0 and gt<0 as first two elements.
+        if (len(params) in {6, 10, 12} and
+                isinstance(params[0], float) and params[0] == 0.0 and
+                isinstance(params[1], float) and params[1] < 0):
+            np_v  = int(params[2])
+            ef_v  = int(params[5])
+            ncs_v = int(params[11]) if len(params) >= 12 and int(params[11]) > 0 else 128
+            params = [np_v, ef_v, ncs_v]
         self._n_probe = int(params[0])
         self._ef      = int(params[1])
         self._n_cluster_seeds_s      = int(params[2])   if len(params) > 2 else 128
@@ -182,15 +192,17 @@ class ArcFlare(BaseANN):
         self._seed_rpq_gate          = float(params[7]) if len(params) > 7 else -1.0
         self._fp16_early_exit_factor = float(params[8]) if len(params) > 8 else -1.0
         self._weighted_seed_budget   = bool(int(params[9])) if len(params) > 9 else False
+        self._finger_gate_factor     = float(params[10]) if len(params) > 10 else -1.0
         crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
         rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
         eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
         srg_disp   = '{:.2f}'.format(self._seed_rpq_gate) if self._seed_rpq_gate >= 0 else 'off'
         feef_disp  = '{:.2f}'.format(self._fp16_early_exit_factor) if self._fp16_early_exit_factor >= 0 else 'off'
-        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={})'.format(
+        fgf_disp   = '{:.2f}'.format(self._finger_gate_factor) if self._finger_gate_factor >= 0 else 'off'
+        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={},fgf={})'.format(
             self._n_probe, self._ef, self._n_cluster_seeds_s,
             self._presort_seed_mult, crinn_disp, rpqgm_disp, eps_disp, srg_disp, feef_disp,
-            1 if self._weighted_seed_budget else 0)
+            1 if self._weighted_seed_budget else 0, fgf_disp)
 
     def query(self, v, n):
         return self._index.search(
@@ -207,6 +219,7 @@ class ArcFlare(BaseANN):
             fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
             weighted_seed_budget     = bool(self._weighted_seed_budget),
             beam_mode                = str(self._beam_mode),
+            finger_gate_factor       = float(self._finger_gate_factor),
         )
 
     def batch_query(self, X, n):
@@ -225,6 +238,7 @@ class ArcFlare(BaseANN):
             fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
             weighted_seed_budget     = bool(self._weighted_seed_budget),
             beam_mode                = str(self._beam_mode),
+            finger_gate_factor       = float(self._finger_gate_factor),
         )
 
     def get_batch_results(self):

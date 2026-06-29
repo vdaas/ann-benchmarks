@@ -1,12 +1,28 @@
 from __future__ import absolute_import
 import sys
 import os
-import ngtpy
-import numpy as np
+import ctypes
 import subprocess
 import time
+
+# NGT 2.7.4 ライブラリを先にロードしてから ngtpy をインポートする
+_NGT274_BIN = '/tmp/ngt274/bin'
+_NGT274_LIB = '/tmp/ngt274/lib'
+_libngt274 = os.path.join(_NGT274_LIB, 'libngt.so')
+if os.path.exists(_libngt274):
+    ctypes.CDLL(_libngt274, ctypes.RTLD_GLOBAL)
+
+import ngtpy  # noqa: E402
+import numpy as np
 from ann_benchmarks.algorithms.base import BaseANN
 from ann_benchmarks.constants import INDEX_DIR
+
+def _ngt_env():
+    env = os.environ.copy()
+    ld = env.get('LD_LIBRARY_PATH', '')
+    if _NGT274_LIB not in ld:
+        env['LD_LIBRARY_PATH'] = _NGT274_LIB + (':' + ld if ld else '')
+    return env
 
 class QG(BaseANN):
     def __init__(self, metric, object_type, epsilon, param):
@@ -32,11 +48,13 @@ class QG(BaseANN):
     def fit(self, X):
         print('QG: start indexing...')
         dim = len(X[0])
-        print('QG: # of data=' + str(len(X)))
+        n = len(X)
+        print('QG: # of data=' + str(n))
         print('QG: dimensionality=' + str(dim))
-        index_dir = 'indexes'
-        if not os.path.exists(index_dir):
-            os.makedirs(index_dir)
+        tag = 'ngt-qg-D{}-N{}-E{}-od{}-id{}-me{}'.format(
+            dim, n, self._edge_size, self._outdegree, self._indegree, self._max_edge_size)
+        index_dir = os.path.join(INDEX_DIR, tag)
+        os.makedirs(index_dir, exist_ok=True)
         index = os.path.join(
             index_dir,
             'ONNG-{}-{}-{}'.format(self._edge_size, self._outdegree,
@@ -46,12 +64,13 @@ class QG(BaseANN):
         if (not os.path.exists(index)) and (not os.path.exists(anngIndex)):
             print('QG: create ANNG')
             t = time.time()
-            args = ['ngt', 'create', '-it', '-p8', '-b500', '-ga', '-of',
+            ngt_bin = os.path.join(_NGT274_BIN, 'ngt')
+            args = [ngt_bin, 'create', '-it', '-p8', '-b500', '-ga', '-of',
                     '-D' + self._metric, '-d' + str(dim),
                     '-E' + str(self._edge_size), '-S40',
                     '-e' + str(self._epsilon), '-P0', '-B30',
                     '-T' + str(self._build_time_limit), anngIndex]
-            subprocess.call(args)
+            subprocess.call(args, env=_ngt_env())
             idx = ngtpy.Index(path=anngIndex)
             idx.batch_insert(X, num_threads=24, debug=False)
             idx.save()
@@ -60,17 +79,18 @@ class QG(BaseANN):
         if not os.path.exists(index):
             print('QG: degree adjustment')
             t = time.time()
-            args = ['ngt', 'reconstruct-graph', '-mS',
+            ngt_bin = os.path.join(_NGT274_BIN, 'ngt')
+            args = [ngt_bin, 'reconstruct-graph', '-mS',
                     '-E ' + str(self._outdegree),
                     '-o ' + str(self._outdegree),
                     '-i ' + str(self._indegree), anngIndex, index]
-            subprocess.call(args)
+            subprocess.call(args, env=_ngt_env())
             print('QG: degree adjustment time(sec)=' + str(time.time() - t))
         if not os.path.exists(index + '/qg'):
             print('QG: quantization')
             t = time.time()
-            args = ['ngtqg', 'quantize', index]
-            subprocess.call(args)
+            ngtpy.QuantizedIndex.quantize(index, dimension_of_subvector=0,
+                                          max_num_of_edges=self._max_edge_size)
             print('QG: quantization time(sec)=' + str(time.time() - t))
         if os.path.exists(index):
             print('QG: index already exists! ' + str(index))

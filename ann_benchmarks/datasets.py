@@ -207,7 +207,7 @@ def _load_mnist_vectors(fn):
                   for i in range(dim_count)]
 
     entry_count = dimensions[0]
-    entry_size = numpy.product(dimensions[1:])
+    entry_size = numpy.prod(dimensions[1:])
 
     b, format_string = type_code_info[type_code]
     vectors = []

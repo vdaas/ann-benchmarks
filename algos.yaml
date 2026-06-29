@@ -584,8 +584,20 @@ float:
             #   np=43 ef=170 ncs=128 psm=22 crinn=63: recall=0.9906 @QPS=2355 ★ highest recall@np=43
             #   np=43 ef=180 ncs=128 psm=16 crinn=67: recall=0.9903 @QPS=2319 ★ safe margin
             #   np=45 ef=160 ncs=128 psm=22 crinn=60: recall=0.9904 @QPS=2207 ref (was best before np=43 sweep)
-            # NOTE: AVX-512 hardware (Intel Xeon): seeding 2× faster (gpq4_batch_ip_avx512 auto-selected)
+            # NOTE: AVX-512 hardware (Intel Xeon): seeding 2× faster (gpq4_batch_ip_avx512_2block auto-selected)
             #       → Amdahl: (82%/2 + 18%) = 59% of current time → QPS ≈ 2418 × 1.69 ≈ 4086 estimated
+            # SIMD optimization (2026-06-27, feat/simd-opt → main):
+            #   dot_q_sq4_asym_8x: added __AVX512VNNI__ path (dpbusd+_af_sq4_nib512); AVX2 path unchanged
+            #   gpq4_batch_ip_avx512_4block: 4 blocks × 2 planes/iter, 8 YMM acc pairs sharing 1 ZMM LUT
+            #   Index.cpp seeding loop: b+=4 outer loop precedes b+=2 and b+=1 tails
+            #   Local Zen2 sweep (AVX2 only, 7-run, ArcFlare-M96-asym-batch-batch):
+            #     np=43 ef=156 crinn=63 ncs=128 psm=16 srg=0.10: recall=0.9900 @QPS=2457 ★★ NEW BEST local
+            #     np=43 ef=170 crinn=63 ncs=128 psm=16 srg=0.10: recall=0.9900 @QPS=2417
+            #     np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2361
+            #     np=43 ef=180 crinn=67 ncs=128 psm=16 srg=0.10: recall=0.9903 @QPS=2349
+            #     np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2308
+            #     np=45 ef=160 crinn=60 ncs=128 psm=22 srg=0.10: recall=0.9904 @QPS=2308
+            #   → AVX-512 4-block Amdahl: seeding ≈ 2.5-3× faster → total ~51-54% → QPS ≈ 2457 × 1.85-1.96 ≈ 4545-4815
             - [[43, 152, 128, 16, 63, -1.0, -1.0, 0.10],
                [43, 156, 128, 16, 63, -1.0, -1.0, 0.10],
                [43, 170, 128, 16, 63, -1.0, -1.0, 0.10],
@@ -1480,6 +1492,54 @@ float:
                [0.0, -1.0, -1, 0, 2,  160],
                [0.0, -1.0, -1, 0, 2,  320],
                [0.0, -1.0, -1, 0, 2,  640]]
+        a140-l2-fp16-v2:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - SIFT-128 Pareto (80T, M64/K256 simd-baseline):
+            # 0.5437@40468  0.6666@28637  0.7910@19702  0.9221@11646
+            # 0.9657@7098   0.9838@4558   0.9963@3463   0.9992@944  0.9993@850
+            - [[  1,   20,  16],
+               [  2,   20,  16],
+               [  4,   20,  32],
+               [  4,   50,  48],
+               [  8,   50,  64],
+               [  8,  100,  96],
+               [ 12,  100,  96],
+               [ 16,  100, 128],
+               [ 16,  200, 128],
+               [ 24,  200, 160],
+               [ 32,  200, 192],
+               [ 32,  400, 256],
+               [ 48,  400, 320],
+               [ 64,  600, 384],
+               [ 96,  800, 512],
+               [128, 1200, 640],
+               [192, 1600, 768],
+               [256, 2000, 896]]
+        a140-l2-m96k1024:
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - SIFT-128 M96/K1024 fp16 beam (80T):
+            # 0.4965@202527  0.6304@102272  0.7321@92088  0.7792@44249  0.8638@44297
+            # 0.8813@29510   0.9180@25615   0.9418@18905  0.9701@13227  0.9818@8794
+            # 0.9925@4079    0.9959@2686    0.9984@1615   0.9991@1067   0.9993@685
+            - [[  1,   10,    8],
+               [  2,   20,   16],
+               [  4,   20,   32],
+               [  4,   50,   48],
+               [  8,   50,   64],
+               [  8,  100,   96],
+               [ 12,  100,   96],
+               [ 16,  100,  128],
+               [ 16,  200,  128],
+               [ 24,  200,  160],
+               [ 32,  200,  192],
+               [ 48,  400,  320],
+               [ 64,  600,  384],
+               [ 96,  800,  512],
+               [128, 1200,  640],
+               [192, 1600,  768],
+               [256, 2000,  896]]
     ArcFlare-A150-L2:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
@@ -1512,6 +1572,71 @@ float:
                [0.0, -1.0, 60, 0, 2, 180, 0, -1.0, 0, 0, 0, 224],
                [0.0, -1.0, 64, 0, 2, 200, 0, -1.0, 0, 0, 0, 256],
                [0.0, -1.0, 72, 0, 2, 220, 0, -1.0, 0, 0, 0, 256]]
+        a150-l2-m96k4096:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 4096, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true}]
+          query-args:
+            # Compact [np, ef, ncs] - GIST-960 (80T, M96/K4096 rebuild, fp16 beam; symlink→sq4-asym RPQ128):
+            # 0.7772@294  0.8660@173  0.9278@129  0.9580@99   0.9728@74
+            # 0.9869@49   0.9918@59   0.9952@43   0.9962@39   0.9981@32  0.9983@28
+            - [[ 16,   80,   64],
+               [ 32,  160,  128],
+               [ 64,  300,  192],
+               [ 96,  450,  256],
+               [128,  600,  320],
+               [192,  900,  448],
+               [256, 1200,  512],
+               [320, 1600,  640],
+               [384, 2000,  768],
+               [512, 2500,  896],
+               [640, 3200, 1024]]
+        a150-l2-m96k1024:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true}]
+          query-args:
+            # Compact [np, ef, ncs] - GIST-960 M96/K1024 rebuild fp16 beam (80T).
+            # BEST config for all recall levels — 2-5x faster than M128/K4096.
+            # Full sweep (2026-06-29): np=20 ef=130 ncs=144 dominates all np=16-32 old points.
+            # 0.4278@17492  0.5705@11218  0.6638@7172   0.7039@6234   0.8003@4601
+            # 0.8388@3521   0.8676@3200   0.8856@2649   0.8998@2165   0.9216@2222
+            # 0.9524@1848   0.9634@1536   0.9702@1238   0.9757@1176   0.9842@900
+            # 0.9886@726    0.9910@555    0.9949@155    0.9985@61     0.9988@26
+            - [[  1,   10,    8],
+               [  2,   20,   16],
+               [  3,   30,   24],
+               [  4,   30,   32],
+               [  6,   50,   48],
+               [  6,   80,   56],
+               [  8,   80,   64],
+               [  8,  100,   80],
+               [ 10,  100,   80],
+               [ 12,  120,   96],
+               [ 20,  130,  144],
+               [ 24,  160,  160],
+               [ 24,  200,  176],
+               [ 32,  200,  192],
+               [ 40,  240,  224],
+               [ 48,  300,  256],
+               [ 56,  350,  288],
+               [ 96,  450,  256],
+               [192,  900,  448],
+               [640, 3200, 1024]]
+        a150-l2-m128k4096:
+          args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 4096, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - GIST-960 M128/K4096 fp16 beam (80T).
+            # Note: M96/K1024 rebuild is 2-5x faster at all recall levels.
+            # 0.7881@1705  0.8721@956  0.9298@577  0.9587@366  0.9734@274  0.9869@179
+            # 0.9920@133   0.9950@105  0.9967@87   0.9982@69   0.9985@56
+            - [[ 16,   80,   64],
+               [ 32,  160,  128],
+               [ 64,  300,  192],
+               [ 96,  450,  256],
+               [128,  600,  320],
+               [192,  900,  448],
+               [256, 1200,  512],
+               [320, 1600,  640],
+               [384, 2000,  768],
+               [512, 2500,  896],
+               [640, 3200, 1024]]
     vamana(diskann):
       docker-tag: ann-benchmarks-diskann
       module: ann_benchmarks.algorithms.diskann
@@ -1922,6 +2047,35 @@ float:
                [0.0, -1.0, 40, 0, 2, 200, 0, -1.0, 0, 0, 0, 160],
                [0.0, -1.0, 48, 0, 2, 300, 0, -1.0, 0, 0, 0, 192],
                [0.0, -1.0, 64, 0, 2, 400, 0, -1.0, 0, 0, 0, 256]]
+        a140-ang-m96-k1024:
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - M96/K1024 fp16 beam (80T):
+            # GloVe-100 simd-baseline Pareto (80T sweep 2026-06-29):
+            #   0.6410@36140  0.6778@41090  0.7226@34965  0.7721@29539  0.8042@23979
+            #   0.8276@17395  0.8639@9973   0.8760@9569   0.9044@7063   0.9203@5100
+            #   0.9422@2845   0.9554@1968   0.9715@1094   0.9805@779    0.9857@536
+            #   0.9891@407    0.9925@282
+            # NYTimes-256 simd-baseline Pareto (80T):
+            #   0.9024@2860  0.9530@1031  0.9706@629  0.9775@447  0.9803@374
+            #   0.9815@315   0.9822@260 (fp16 ceiling)
+            - [[  1,   10,    8],
+               [  2,   20,   16],
+               [  4,   20,   32],
+               [  8,   50,   64],
+               [ 12,  100,   96],
+               [ 16,  120,  112],
+               [ 24,  200,  160],
+               [ 32,  160,  128],
+               [ 48,  250,  192],
+               [ 64,  300,  192],
+               [ 96,  450,  256],
+               [128,  600,  320],
+               [192,  900,  448],
+               [256, 1200,  512],
+               [320, 1600,  640],
+               [384, 2000,  768],
+               [512, 2500,  896]]
     ArcFlare-A140-Ang:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
