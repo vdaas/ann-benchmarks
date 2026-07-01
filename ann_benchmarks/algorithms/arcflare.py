@@ -72,19 +72,15 @@ class ArcFlare(BaseANN):
         # sys.path entries, so a normal 'import arcflare_ext' always picks the
         # dist-packages copy.  Use spec_from_file_location to force-load the freshly
         # built .so from the build directory regardless of installed metadata.
-        # worktree fp16:     AF_FP16_BEAM=ON + AF_SQ8=ON (default for L2 and angular fp16 beam)
-        # worktree fp32_sq8: AF_FP16_BEAM=OFF + AF_SQ8=ON (SQ8 int8 beam; 2x bandwidth vs fp16)
-        # main soar:         AF_SOAR=ON + AF_SQ8=ON (soar not yet in worktree build)
-        _WORKTREE = '/home/kpango/go/src/github.com/vdaas/ArcFlare/.claude/worktrees/routing-pq-improve'
         _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
         if self._soar:
             _BUILD = _MAIN + '/build/python_sdk_soar'
         elif self._saq_fp16:
-            _BUILD = _WORKTREE + '/build_saq_fp16'
+            _BUILD = _MAIN + '/build_saq_fp16'
         elif self._saq:
-            _BUILD = _WORKTREE + '/build_soar_saq'
+            _BUILD = _MAIN + '/build_soar_saq'
         elif self._bapq:
-            _BUILD = _WORKTREE + '/build/python_sdk_bapq'
+            _BUILD = _MAIN + '/build/python_sdk_bapq'
         elif self._sq2_beam:
             _BUILD = _MAIN + '/build/python_sdk_sq2'
         elif self._sq4_beam:
@@ -193,16 +189,18 @@ class ArcFlare(BaseANN):
         self._fp16_early_exit_factor = float(params[8]) if len(params) > 8 else -1.0
         self._weighted_seed_budget   = bool(int(params[9])) if len(params) > 9 else False
         self._finger_gate_factor     = float(params[10]) if len(params) > 10 else -1.0
+        self._sq4_pfah               = int(params[11])   if len(params) > 11 else 0
         crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
         rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
         eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
         srg_disp   = '{:.2f}'.format(self._seed_rpq_gate) if self._seed_rpq_gate >= 0 else 'off'
         feef_disp  = '{:.2f}'.format(self._fp16_early_exit_factor) if self._fp16_early_exit_factor >= 0 else 'off'
         fgf_disp   = '{:.2f}'.format(self._finger_gate_factor) if self._finger_gate_factor >= 0 else 'off'
-        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={},fgf={})'.format(
+        pfah_disp  = self._sq4_pfah if self._sq4_pfah > 0 else 'def'
+        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={},fgf={},sq4pfah={})'.format(
             self._n_probe, self._ef, self._n_cluster_seeds_s,
             self._presort_seed_mult, crinn_disp, rpqgm_disp, eps_disp, srg_disp, feef_disp,
-            1 if self._weighted_seed_budget else 0, fgf_disp)
+            1 if self._weighted_seed_budget else 0, fgf_disp, pfah_disp)
 
     def query(self, v, n):
         return self._index.search(
@@ -220,6 +218,7 @@ class ArcFlare(BaseANN):
             weighted_seed_budget     = bool(self._weighted_seed_budget),
             beam_mode                = str(self._beam_mode),
             finger_gate_factor       = float(self._finger_gate_factor),
+            sq4_pfah                 = int(self._sq4_pfah),
         )
 
     def batch_query(self, X, n):
@@ -239,6 +238,7 @@ class ArcFlare(BaseANN):
             weighted_seed_budget     = bool(self._weighted_seed_budget),
             beam_mode                = str(self._beam_mode),
             finger_gate_factor       = float(self._finger_gate_factor),
+            sq4_pfah                 = int(self._sq4_pfah),
         )
 
     def get_batch_results(self):

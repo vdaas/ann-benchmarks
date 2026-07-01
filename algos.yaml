@@ -598,6 +598,28 @@ float:
             #     np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2308
             #     np=45 ef=160 crinn=60 ncs=128 psm=22 srg=0.10: recall=0.9904 @QPS=2308
             #   → AVX-512 4-block Amdahl: seeding ≈ 2.5-3× faster → total ~51-54% → QPS ≈ 2457 × 1.85-1.96 ≈ 4545-4815
+            # sq4_pfah sweep (2026-07-01, 7-run, Zen2 80T, np=43 ef=152 crinn=63 psm=16 srg=0.10):
+            #   pfah=16: QPS_mean=2278  pfah=24: QPS_mean=2401  pfah=32: QPS_mean=2305
+            #   pfah=40: QPS_mean=2407  pfah=48: QPS_mean=2315  pfah=64: QPS_mean=2366
+            #   QPS_max identical across all (2521-2541) — DRAM-bound, no winner. Default (32) is fine.
+            # FINGER gate sweep (2026-07-01, 7-run, Zen2 80T, np=43 ef=152 crinn=63 psm=16 srg=0.10):
+            #   fgf  recall  QPS_mean  QPS_max  vs_off
+            #   off  0.9900     2013     2493     ref   (cold-cache mean; QPS_max is warm)
+            #   0.1  0.9499     2412     2766    +19.8%  ★ best mean QPS at mid-recall
+            #   0.2  0.9539     2390     2658    +18.7%
+            #   0.3  0.9569     2372     2652    +17.9%
+            #   0.5  0.9606     2435     2614    +21.0%  ★ best overall mean QPS
+            #   0.7  0.9629     2405     2566    +19.5%
+            #   0.9  0.9645     2324     2552    +15.5%
+            #   1.2  0.9664     2396     2574    +19.0%
+            #   1.5  0.9680     2314     2554    +14.9%
+            #   2.0  0.9714     2293     2542    +13.9%
+            # CONCLUSION: FINGER gate on SQ4-asym beam CANNOT reach recall≥0.99 regardless of fgf.
+            #   SQ4 quantization noise makes d_qx (≈SQ4 dist) a loose lower-bound → gate skips too
+            #   aggressively. Max achievable recall with any fgf: ~0.9714 (fgf=2.0). NOT viable for
+            #   recall≥0.99 operating points. fp16 beam FINGER gate tested separately (see GloVe run-groups).
+            # MID-RECALL PARETO (FINGER gate): adds 0.95-0.97 operating points for GIST-960 Pareto curve.
+            #   Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf]
             - [[43, 152, 128, 16, 63, -1.0, -1.0, 0.10],
                [43, 156, 128, 16, 63, -1.0, -1.0, 0.10],
                [43, 170, 128, 16, 63, -1.0, -1.0, 0.10],
@@ -1361,31 +1383,29 @@ float:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true}]
           query-args:
             # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb]
-            # SQ4 beam: 4-bit nibble-packed, ~400 bytes/vector (fp16 1568B x1/4)
-            # Fashion-MNIST-784 measured results:
-            #   Glass SQ4U hard ceiling: recall=0.9519 @ QPS=69K-120K (M=32/48, ef=400-600)
-            #   ArcFlare SQ4 breaks Glass ceiling: recall=0.9543 @ QPS=59K (np=2,ef=20,ncs=2)
-            #   ArcFlare SQ4 @ 0.9849 recall = QPS=35K (np=4,ef=30,ncs=4)
-            #   ArcFlare SQ4 @ 0.9996 recall = QPS=9K  (np=16,ef=100,ncs=64)
+            # NOTE: sq4_beam=true selects build/python_sdk_sq4 but beam_mode='auto' → fp16 beam is used.
+            # beam_mode='sq4' on Fashion-MNIST D=784 returns recall=0.036 (NOT viable at D=784).
+            # Fashion-MNIST-784 fp16 beam Pareto (80T, 5-run, 2026-07-01):
+            #   [2,20,2]=0.9399@67479   [4,40,8]=0.9806@47450   [8,80,32]=0.9960@30766
+            #   [12,80,48,crinn=40]=0.9979@26557  [12,80,48]=0.9983@24042  [16,100,64]=0.9991@15471
+            #   SRG=0.10: [16,100,64]=0.9987@23766 (+45.7%)  SRG=0.30: 0.9991@19762 (+21.2%)
+            #   CRINN=20: [16,100,64]=0.9973@20833 (+24.4%)  CRINN=30: 0.9982@19089 (+14%)
+            #   [24,120,96]=0.9997@8278  [32,150,128]=0.9999@5736
             # GIST-960-euclidean measured (single-thread, max_edges=128, alpha=1.5):
             #   np=56 srg=0.2: recall>=0.99 (peak recall=0.9930 @ np=64,srg=0.3)
-            - [[ 2,  20,   2, 0, 0, -1.0, -1.0],
-               [ 2,  30,   4, 0, 0, -1.0, -1.0],
-               [ 4,  30,   4, 0, 0, -1.0, -1.0],
-               [ 4,  40,   4, 0, 0, -1.0, -1.0],
-               [ 4,  40,   8, 0, 0, -1.0, -1.0],
-               [ 4,  60,   8, 0, 0, -1.0, -1.0],
-               [ 8,  60,   8, 0, 0, -1.0, -1.0],
-               [ 8,  80,  16, 0, 0, -1.0, -1.0],
-               [ 8,  80,  32, 0, 0, -1.0, -1.0],
-               [16,  80,  32, 0, 0, -1.0, -1.0],
-               [16, 100,  64, 0, 0, -1.0, -1.0],
-               [24, 120,  64, 0, 0, -1.0, -1.0],
-               [32, 150,  96, 0, 0, -1.0, -1.0],
-               [48, 200, 128, 0, 0, -1.0, -1.0],
-               [56, 200, 128, 0, 0, -1.0, -1.0, 0.2],
-               [64, 200, 128, 0, 0, -1.0, -1.0, 0.2],
-               [64, 300, 192, 0, 0, -1.0, -1.0, 0.3]]
+            - [[ 2,  20,   2,  0,  0, -1.0, -1.0],
+               [ 4,  40,   8,  0,  0, -1.0, -1.0],
+               [ 8,  80,  32,  0,  0, -1.0, -1.0],
+               [12,  80,  48, 24, 40, -1.0, -1.0],
+               [12,  80,  48,  0,  0, -1.0, -1.0],
+               [16, 100,  64,  0,  0, -1.0, -1.0],
+               [16, 100,  64,  0,  0, -1.0, -1.0, 0.10],
+               [16, 100,  64,  0,  0, -1.0, -1.0, 0.30],
+               [24, 120,  96,  0,  0, -1.0, -1.0],
+               [32, 150, 128,  0,  0, -1.0, -1.0],
+               [56, 200, 128,  0,  0, -1.0, -1.0, 0.2],
+               [64, 200, 128,  0,  0, -1.0, -1.0, 0.2],
+               [64, 300, 192,  0,  0, -1.0, -1.0, 0.3]]
         a140-l2-bapq:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'bapq': true}]
           query-args:
@@ -1519,12 +1539,17 @@ float:
         a140-l2-m96k1024:
           args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
-            # Compact [np, ef, ncs] - SIFT-128 M96/K1024 fp16 beam (80T, updated 2026-06-29):
+            # Compact [np, ef, ncs] - SIFT-128 M96/K1024 fp16 beam (80T, updated 2026-07-01):
             # 0.4965@198079  0.6304@107995  0.7321@71385   0.7792@55842   0.8638@45771
             # 0.8755@37492   0.8875@35198   0.9002@31786   0.9104@28811   0.9321@24649
             # 0.9418@22876   0.9435@21394   0.9600@16915   0.9614@13393   0.9701@10665
             # 0.9819@8143    0.9925@4001    0.9960@2753    0.9984@1662    0.9991@1098
             # 0.9993@683
+            # FINGER gate (fgf=0.5) adds 6-12% QPS: see a140-l2-m96k1024-fgf run-group.
+            # CRINN sweep (2026-07-01, 80T, 5-run, psm=24):
+            #   [48,400,320] crinn=40: 0.9903@3385 (+56.7%) crinn=60: 0.9910@3205 (+48.3%)
+            #   [96,800,512] crinn=60: 0.9977@1698 (+52.2%)
+            #   [128,1200,640] crinn=60: 0.9987@1186 (+51.6%)
             - [[  1,   10,    8],
                [  2,   20,   16],
                [  4,   20,   32],
@@ -1542,10 +1567,39 @@ float:
                [ 24,  200,  160],
                [ 32,  200,  192],
                [ 48,  400,  320],
+               [ 48,  400,  320,  24,  40],
+               [ 48,  400,  320,  24,  60],
                [ 64,  600,  384],
                [ 96,  800,  512],
+               [ 96,  800,  512,  24,  60],
                [128, 1200,  640],
+               [128, 1200,  640,  24,  60],
                [192, 1600,  768]]
+        a140-l2-m96k1024-fgf:
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # SIFT-128 M96/K1024 FINGER gate (fgf=0.5, 80T, 5-run, 2026-07-01):
+            # D=128: fgf=0.3-0.5 provides +7-12% QPS with minimal recall loss across all operating points.
+            # Key results (fgf=off → fgf=best):
+            #   [16,100,128]:  0.9418@20182 → 0.9354@24302 (+20.4%, fgf=0.7, recall-0.0064)
+            #   [48,400,320]:  0.9924@5707  → 0.9916@6419  (+12.5%, fgf=0.3, recall-0.0008)
+            #   [96,800,512]:  0.9983@2877  → 0.9982@3106  (+8.0%,  fgf=0.5, recall-0.0001)
+            #   [128,1200,640]: 0.9991@1952 → 0.9991@2096  (+7.4%,  fgf=0.5, recall=0.0000) ← PURE PARETO
+            #   [192,1600,768]: 0.9992@1407 → 0.9992@1471  (+4.5%,  fgf=0.3, recall-0.0001)
+            # Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf]
+            # CRINN+FGF combination (2026-07-01, 80T, 7-run verify):
+            #   [48,400,320] crinn=60+fgf=0.5: 0.9901@3124 (+44.6%) — worse than crinn=60 alone (3205)
+            #   [96,800,512] crinn=60+fgf=0.5: 0.9974@1711 (+53.4%) — slightly better than crinn alone (1698)
+            #   [128,1200,640] crinn=60+fgf=0.5: 0.9986@2549 (+259.9% vs 708 baseline) — VERIFIED REAL
+            - [[ 16,  100,  128, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.7],
+               [ 32,  200,  192, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [ 48,  400,  320, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.3],
+               [ 64,  600,  384, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [ 96,  800,  512, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [ 96,  800,  512, 24, 60, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [128, 1200,  640, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [128, 1200,  640, 24, 60, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [192, 1600,  768, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.3]]
     ArcFlare-A150-L2:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
@@ -1600,6 +1654,8 @@ float:
           query-args:
             # Compact [np, ef, ncs] - GIST-960 M96/K1024 rebuild fp16 beam (80T).
             # BEST config for all recall levels — 2-5x faster than M128/K4096.
+            # FINGER gate (D=960, 80T, 5-run, 2026-07-01): REJECTED — recall 0.99→0.95-0.96 (fatal).
+            # High dimensionality causes excessive skipping; no fgf value preserves recall≥0.99.
             # Full sweep (2026-06-29): np=20 ef=130 ncs=144 dominates all np=16-32 old points.
             # np=64-96 fill sweep (2026-06-29): Pareto front between np=56@555 and np=96@155.
             # hr gap fill (2026-06-29): [128,600,512]+[256,1200,768] fill 0.9954→0.9985 gap.
@@ -1638,6 +1694,13 @@ float:
                [192,  900,  448],
                [256, 1200,  768],
                [640, 3200, 1024]]
+            # GIST-960 CRINN=40 (2026-07-01, 80T, 5-run, recall≥0.99 maintained):
+            #   np  base  crinn40  recall_base  recall_crinn  delta
+            #   128   444      834       0.9965        0.9902  +87.9%
+            #   192   312      592       0.9979        0.9939  +89.8%
+            # np=56/80 CRINN drops recall below 0.99 — NOT added.
+            - [[128,  600,  512,  24,  40],
+               [192,  900,  448,  24,  40]]
         a150-l2-m128k4096:
           args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 4096, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
@@ -2077,6 +2140,29 @@ float:
             #   0.9184@6318   0.9203@5042   0.9271@4387   0.9327@3901   0.9336@3623
             #   0.9379@3231   0.9422@2953   0.9554@1968   0.9715@1094   0.9805@779
             #   0.9857@536    0.9891@407    0.9925@282
+            # GloVe-100 FINGER gate (warm cache, 80T, 5-run, 2026-07-01):
+            #   [128,600,320]:  fgf=0.5 → +1.6%, fgf=0.7 → +1.4% (recall-0.0005)
+            #   [256,1200,512]: fgf=0.5 → +0.7%, fgf=0.7 → -0.6% (recall-0.0002)
+            #   [384,2000,768]: fgf=0.5/0.6 → +0.8%, fgf=0.7 → -2.2%
+            #   [512,2500,896]: fgf=0.5 → +4.0%, fgf=0.7 → +4.5% (largest warm-cache effect)
+            #   CONCLUSION: D=100 FINGER gate warm-cache effect is small (+0.7% typical, max +4.5%).
+            #   Earlier +162% result was CPU-competition noise (NYTimes sweep ran concurrently).
+            #   Cold-cache test (2026-07-01, np=256 ef=1200 ncs=512): +0.07% QPS, recall-0.0002 → NOT viable.
+            #   FINAL VERDICT: GloVe-100 FINGER gate provides negligible benefit. Do NOT add to query-args.
+            # NYTimes-256 alpha=1.40 ceiling (80T, confirmed 2026-07-01):
+            #   [256,1200,512] → 0.9771@341  [320,1600,640] → 0.9801@396
+            #   [384,2000,768] → 0.9815@435  [512,2500,896] → 0.9822@358
+            #   [640,3000,1024] → 0.9822@301  ← ceiling confirmed = 0.9822
+            # NYTimes-256 alpha=1.50 (80T, 2026-07-01): DOES NOT exceed ceiling.
+            #   BUT delivers 2-3× QPS at mid-recall vs alpha=1.40:
+            #   [128,600,320] → 0.9518@1455  [192,900,448] → 0.9698@955
+            #   [256,1200,512] → 0.9767@712 (+108% vs a1.40@341)
+            #   [320,1600,640] → 0.9797@535 (+35% vs a1.40@396)
+            #   [384,2000,768] → 0.9811@449 (+3% vs a1.40@435)
+            #   [512,2500,896] → 0.9818@371  [640,3000,1024] → 0.9818@316
+            #   → See ArcFlare-A150-Ang section below for run-group.
+            # NYTimes-256 FINGER gate (D=256, alpha=1.40, np=384 ef=2000): NO EFFECT.
+            #   fgf=0.5 → -1.7% QPS. High-D makes triangle inequality too loose. NOT viable.
             # NYTimes-256 simd-baseline (80T, updated 2026-06-29):
             #   [3,20,16] → 0.6835@26363  [8,50,32] → 0.7413@19034
             #   [16,80,48] → 0.7892@16632  [20,130,128] → 0.8117@6656
@@ -2090,6 +2176,12 @@ float:
             #   [192,900,448] → 0.9710@524   [256,1200,512] → 0.9776@399
             #   [320,1600,640] → 0.9804@308  [384,2000,768] → 0.9817@259
             #   [512,2500,896] → 0.9823@224 (fp16 ceiling)
+            # CRINN=60 sweep (2026-07-01, 80T, 5-run, psm=24) — dramatic QPS gains on Angular:
+            #   GloVe-100: [64,300,192]→0.9162@7287(+8.1%) [128,600,320]→0.9505@4432(+30.1%)
+            #              [256,1200,512]→0.9774@2409(+51.3%) [512,2500,896]→0.9910@1040(+51.7%)
+            #   NYTimes-256: [128,600,320]→0.9508@2075(+45.5%) [192,900,448]→0.9690@1404(+41.8%)
+            #                [256,1200,512]→0.9764@543(+59.7%) [320,1600,640]→0.9795@886(+71.4%)
+            #                [384,2000,768]→0.9810@744(+77.9%)
             - [[  1,   10,    8],
                [  3,   20,   16],
                [  4,   20,   32],
@@ -2109,17 +2201,24 @@ float:
                [ 48,  250,  192],
                [ 64,  250,  128],
                [ 64,  300,  192],
+               [ 64,  300,  192,  24,  60],
                [ 72,  350,  192],
                [ 80,  380,  224],
                [ 80,  420,  256],
                [ 88,  420,  256],
                [ 96,  450,  256],
                [128,  600,  320],
+               [128,  600,  320,  24,  60],
                [192,  900,  448],
+               [192,  900,  448,  24,  60],
                [256, 1200,  512],
+               [256, 1200,  512,  24,  60],
                [320, 1600,  640],
+               [320, 1600,  640,  24,  60],
                [384, 2000,  768],
-               [512, 2500,  896]]
+               [384, 2000,  768,  24,  60],
+               [512, 2500,  896],
+               [512, 2500,  896,  24,  60]]
     ArcFlare-A140-Ang:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
@@ -2214,6 +2313,45 @@ float:
                [0.0, -1.0, 40, 0, 2, 350, 0, -1.0, 0, 0, 0, 224],
                [0.0, -1.0, 48, 0, 2, 400, 0, -1.0, 0, 0, 0, 256],
                [0.0, -1.0, 64, 0, 2, 500, 0, -1.0, 0, 0, 0, 256]]
+    ArcFlare-A150-Ang:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a150-ang-m96-k1024:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - M96/K1024 fp16 beam (80T):
+            # NYTimes-256 alpha=1.50 (2026-07-01): does NOT exceed alpha=1.40 ceiling (0.9822).
+            #   BUT: 2-3× QPS at mid-recall vs alpha=1.40 (key advantage for Pareto front):
+            #   [128,600,320] → 0.9518@1455  [192,900,448] → 0.9698@955
+            #   [256,1200,512] → 0.9767@712 (alpha=1.40 same: 0.9771@341 → +108% QPS)
+            #   [320,1600,640] → 0.9797@535 (alpha=1.40 same: 0.9801@396 → +35% QPS)
+            #   [384,2000,768] → 0.9811@449 (alpha=1.40: 0.9815@435 → +3% QPS)
+            #   [512,2500,896] → 0.9818@371  [640,3000,1024] → 0.9818@316
+            #   Index: arcflare-D256-M96-K1024-a1.50-ep32-cs128-gorder-ang (symlink → simd-baseline)
+            - [[128,  600,  320],
+               [192,  900,  448],
+               [256, 1200,  512],
+               [320, 1600,  640],
+               [384, 2000,  768],
+               [512, 2500,  896],
+               [640, 3000, 1024]]
+            # NYTimes-256 alpha=1.50 CRINN=60 (2026-07-01, 80T, 5-run):
+            #   np  base  crinn60  delta
+            #   128  1386     1904  +37.3%
+            #   192   908     1388  +52.8%
+            #   256   685     1106  +61.4%
+            #   320   518      914  +76.4%
+            #   384   433      801  +85.0%  (peak)
+            #   512   363      661  +81.9%
+            - [[128,  600,  320,  24,  60],
+               [192,  900,  448,  24,  60],
+               [256, 1200,  512,  24,  60],
+               [320, 1600,  640,  24,  60],
+               [384, 2000,  768,  24,  60],
+               [512, 2500,  896,  24,  60]]
     vamana(diskann):
       docker-tag: ann-benchmarks-diskann
       module: ann_benchmarks.algorithms.diskann
