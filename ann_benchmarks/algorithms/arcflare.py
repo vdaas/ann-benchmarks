@@ -40,6 +40,11 @@ class ArcFlare(BaseANN):
         self._saq_fp16    = bool(params.get('saq_fp16',       False))
         # beam_mode: "auto" (fp16 if available), "fp16", "sq8", "sq4", "sq2"
         self._beam_mode   = str(params.get('beam_mode',       'auto'))
+        # graph: "hnsw" grafts an hnswlib level-0 graph onto the built index
+        # (edge quality of HNSW + ArcFlare's ADC/beam scoring). Adds '-hnswgraft'.
+        self._graph_mode  = str(params.get('graph',           ''))
+        self._hnsw_m      = int(params.get('hnsw_m',          32))
+        self._hnsw_efc    = int(params.get('hnsw_efc',       500))
         # Query-time defaults
         self._gamma_enq           = 0.20
         self._gamma_term          = 0.40
@@ -110,6 +115,8 @@ class ArcFlare(BaseANN):
             '-soar' if self._soar else '',
             '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '',
             '-saqfp16' if self._saq_fp16 else ('-saq' if self._saq else ('-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4-asym' if (self._sq4_beam and self._sq4_asym) else ('-sq4' if self._sq4_beam else ''))))))
+        if self._graph_mode == 'hnsw':
+            tag += '-hnswgraft'
         index_dir = os.path.join(INDEX_DIR, tag)
 
         self._index = arcflare_ext.ArcFlare(
@@ -146,6 +153,26 @@ class ArcFlare(BaseANN):
             if self._routing_pq_m > 0:
                 print('ArcFlare: rebuilding RoutingPQ (m=%d)...' % self._routing_pq_m)
                 self._index.rebuild_routing_pq(self._routing_pq_m)
+            if self._graph_mode == 'hnsw':
+                import hnswlib  # delayed: only needed for graph=hnsw
+                import tempfile
+                space = 'cosine' if angular else 'l2'
+                print('ArcFlare: building hnswlib graph (space=%s M=%d efc=%d) for graft...' % (
+                    space, self._hnsw_m, self._hnsw_efc))
+                hp = hnswlib.Index(space=space, dim=d)
+                hp.init_index(max_elements=n, ef_construction=self._hnsw_efc, M=self._hnsw_m)
+                hp.set_num_threads(os.cpu_count() or 1)
+                hp.add_items(np.ascontiguousarray(X, dtype=np.float32),
+                             np.arange(n, dtype=np.int64))
+                fd, tmp = tempfile.mkstemp(suffix='.hnsw')
+                os.close(fd)
+                try:
+                    hp.save_index(tmp)
+                    print('ArcFlare: grafting hnswlib level-0 graph...')
+                    self._index.graft_hnsw(tmp)
+                finally:
+                    if os.path.exists(tmp):
+                        os.remove(tmp)
             os.makedirs(index_dir, exist_ok=True)
             self._index.save(index_dir)
             print('ArcFlare: index saved to', index_dir)
