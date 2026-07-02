@@ -1536,6 +1536,50 @@ float:
                [128, 1200, 640],
                [192, 1600, 768],
                [256, 2000, 896]]
+        # ---- hnswgraft run-groups (2026-07-02): graph='hnsw' grafts hnswlib level-0
+        # edges onto the ArcFlare index (fit() builds hnswlib then graft_hnsw()).
+        # 1T non-batch Pareto (Zen2 AVX2) beats hnswlib itself by 1.2-1.9x on all
+        # datasets; official r6i (AVX512 VNNI) expected higher.
+        # Format: [np, ef, ncs, psm, crinn]
+        a140-l2-m96k1024-hnswgraft:  # SIFT-128
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [2,64,16]=0.9864@4500  [2,128,32]=0.9966@3017  [4,256,64,8,60]=0.9952@2911
+            #     [4,256,64,8,120]=0.9983@2163  [4,256,64]=0.9989@1951  [8,512,64]=0.9992@1096
+            - [[2, 64, 16, 8, -1],
+               [2, 128, 32, 8, -1],
+               [4, 128, 64, 8, -1],
+               [4, 256, 64, 8, 60],
+               [4, 256, 64, 8, 120],
+               [4, 256, 64, 8, -1],
+               [8, 512, 64, 8, -1]]
+        a140-l2-m64k256-hnswgraft:  # Fashion-MNIST-784
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [1,32,16]=0.9960@8191 [2,48,16]=0.9984@5978 [2,64,32]=0.9992@5130
+            #     [4,128,32]=0.9997@3548 [8,256,32]=0.9999@2295
+            - [[1, 32, 16, 8, -1],
+               [2, 48, 16, 8, -1],
+               [2, 64, 32, 8, -1],
+               [4, 128, 32, 8, -1],
+               [8, 256, 32, 8, -1]]
+        a150-l2-m96k1024-rebuild-hnswgraft:  # GIST-960 fp16 beam
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [4,256,64]=0.9812@378 [8,256,64]=0.9836@348 [8,512,64]=0.9929@235 [8,1024,64]=0.9959@151
+            - [[4, 256, 64, 8, -1],
+               [8, 256, 64, 8, -1],
+               [8, 512, 64, 8, -1],
+               [8, 1024, 64, 8, -1]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft:  # GIST-960 sq4 beam (fastest ≥0.99)
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [8,128,64]=0.9708@579 [8,256,64]=0.9864@443 [16,256,64]=0.9907@304 [16,512,64]=0.9949@243 [32,512,64]=0.9968@161
+            - [[8, 128, 64, 8, -1],
+               [8, 256, 64, 8, -1],
+               [16, 256, 64, 8, -1],
+               [16, 512, 64, 8, -1],
+               [32, 512, 64, 8, -1]]
         a140-l2-m96k1024:
           args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
@@ -2033,6 +2077,21 @@ float:
       constructor: ArcFlare
       base-args: ["@metric"]
       run-groups:
+        a140-ang-m96k1024-hnswgraft:  # GloVe-100 / NYTimes-256 (crinn hurts angular here: keep -1)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T non-batch (Zen2 AVX2, 2026-07-02), format [np, ef, ncs, psm, crinn]:
+            # GloVe 1T: [2,128,32]=0.9055@1759 [4,256,64]=0.9465@1090 [8,512,64]=0.9728@646
+            #           [8,1024,64]=0.9861@370 [16,2048,64]=0.9924@198 [32,4096,64]=0.9941@99
+            # NYTimes 1T: [2,128,32]=0.9296@1381 [4,256,32]=0.9493@860 [8,512,64]=0.9657@501
+            #             [8,1024,64]=0.9750@275 [16,2048,64]=0.9803@140
+            - [[2, 128, 32, 8, -1],
+               [4, 256, 32, 8, -1],
+               [4, 256, 64, 8, -1],
+               [8, 512, 64, 8, -1],
+               [8, 1024, 64, 8, -1],
+               [16, 2048, 64, 8, -1],
+               [32, 4096, 64, 8, -1]]
         a140-ang-k1024-fp16:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
