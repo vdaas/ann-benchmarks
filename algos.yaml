@@ -1541,6 +1541,28 @@ float:
         # 1T non-batch Pareto (Zen2 AVX2) beats hnswlib itself by 1.2-1.9x on all
         # datasets; official r6i (AVX512 VNNI) expected higher.
         # Format: [np, ef, ncs, psm, crinn]
+        a140-l2-m96k1024-hnswgraft-sq4:  # SIFT-128 SQ4 beam (batch/80T champion; 1T near-fp16)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            # 2026-07-03 quiet-machine (Zen2 AVX2). 80T: [1,32,16]=0.9460@218717
+            #   [1,64,16]=0.9847@134810 [2,96,32]=0.9935@77189 [2,128,32]=0.9963@85281
+            #   [4,256,64]=0.9988@51742 [8,512,64]=0.9993@28374
+            # 1T: [1,64,16]=0.9847@6180 [2,112,32]=0.9952@3928 [2,128,32]=0.9963@3553
+            # vs Glass sift 80T 0.9954@89873 (tie at higher recall) / ScaNN 0.986@98270 (+37% at 0.985)
+            - [[1, 32, 16, 8, -1],
+               [1, 64, 16, 8, -1],
+               [2, 64, 16, 8, -1],
+               [2, 96, 32, 8, -1],
+               [2, 112, 32, 8, -1],
+               [2, 128, 32, 8, -1],
+               [4, 256, 64, 8, -1],
+               [8, 512, 64, 8, -1]]
+        a140-l2-m64k256-hnswgraft-sq4:  # Fashion-MNIST-784 SQ4 beam (80T: 0.9991@104092, 0.9997@61049)
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            - [[2, 64, 32, 8, -1],
+               [4, 128, 32, 8, -1],
+               [8, 256, 32, 8, -1]]
         a140-l2-m96k1024-hnswgraft:  # SIFT-128
           args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
           query-args:
