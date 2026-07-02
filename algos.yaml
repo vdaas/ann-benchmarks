@@ -2092,6 +2092,16 @@ float:
                [8, 1024, 64, 8, -1],
                [16, 2048, 64, 8, -1],
                [32, 4096, 64, 8, -1]]
+        a140-ang-m64k1024-hnswgraft:  # GloVe-25 (requires low-dim fixes: fp16-exact non-batch + BeamPool all d_eff)
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T (Zen2, 2026-07-02): [2,32,16]=0.9839@4901 [4,64,32]=0.9858@4295
+            #   [4,128,32]=0.9940@2204 [8,256,64]=0.9955@1444 [8,512,64]=0.9957@998 (ceiling≈0.9958)
+            - [[2, 32, 16, 8, -1],
+               [4, 64, 32, 8, -1],
+               [4, 128, 32, 8, -1],
+               [8, 256, 64, 8, -1],
+               [8, 512, 64, 8, -1]]
         a140-ang-k1024-fp16:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
