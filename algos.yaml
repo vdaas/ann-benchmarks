@@ -2358,6 +2358,51 @@ float:
                [320, 1600,  640,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
                [384, 2000,  768,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
                [512, 2500,  896,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
+        a140-ang-m96-k1024-apr-teps:  # ADDITIVE: adaptive_probe_ratio=1.5 + term_eps=0.4 A/B
+          # vs a140-ang-m96-k1024-teps (2026-07-24). adaptive_probe_ratio (apr) truncates
+          # coarse-quantizer probe clusters to those within centroid_dist <= dist[0]*(1+apr)
+          # of the nearest cluster (Index.cpp:2174-2217) -- an IVF-style adaptive n_probe,
+          # orthogonal to term_eps (different pipeline stage: coarse probe-cluster selection
+          # vs beam-loop early termination). IMPORTANT CALIBRATION NOTE: apr's safe range is
+          # np-dependent, NOT a universal constant. The original apr validation
+          # (adaptive-probe-ratio-validation task) used np=64/ef=1400 and found apr=0.4-0.5
+          # bit-identical there; at THESE operating points (np=192-512, i.e. probing
+          # 19-50% of K=1024 clusters) apr=0.4-0.5 measured a consistent -0.3 to -0.9pt
+          # recall LOSS instead (larger np -> wider probe_dists spread -> same relative
+          # margin prunes much more aggressively). Re-swept per-point on THIS run-group's
+          # actual [np,ef] and found apr=1.5 is bit-identical recall at all 5 points (apr=1.0
+          # is -0.01pt at np>=320, apr=0.7 is a -0.05..-0.08pt "aggressive" option not used
+          # here). apr=1.5 is what's encoded below -- do not assume 0.4/0.5 transfers to
+          # other [np,ef] combos without re-validating per point.
+          # T1 measured (glove-100-angular, same index as a140-ang-m96-k1024-teps):
+          #   np=192: recall=0.9708 (bit-identical) QPS 177->186 (+5.1%, teps-alone was +4.0%)
+          #   np=256: recall=0.9800 (bit-identical) QPS 135->143 (+5.9%, teps-alone was +5.9%)
+          #   np=320: recall=0.9854 (bit-identical) QPS 103->113 (+9.7%, teps-alone was +7.8%)
+          #   np=384: recall=0.9888 (bit-identical) QPS  83-> 93 (+12.0%, teps-alone was +9.6%)
+          #   np=512: recall=0.9922 (bit-identical) QPS  67-> 75 (+11.9%, teps-alone was +10.4%)
+          # T80 (n_threads=80, 3-rep avg, recall bit-identical to T1 in every rep):
+          #   np=192: QPS 1918.7->2024.7 (+5.5%, teps-alone T80 was +2.4%)
+          #   np=256: QPS 1407.7->1516.7 (+7.7%, teps-alone T80 was +4.4%)
+          #   np=320: QPS 1067.3->1180.0 (+10.6%, teps-alone T80 was +8.1%)
+          #   np=384: QPS  870.7-> 965.3 (+10.9%, teps-alone T80 was +6.8%)
+          #   np=512: QPS  680.0-> 750.3 (+10.3%, teps-alone T80 was +6.7%)
+          # apr's incremental contribution ON TOP OF term_eps alone: T1 +1.1-2.2%,
+          # T80 +2.3-3.8% -- modest (NOT the superadditive +268-276% seen on glove-25 at
+          # np=64/ef=1400, nor even the +29-35% seen on glove-100 at np=64/ef=1400). At
+          # these large-np operating points term_eps has already captured most of the
+          # early-termination win; apr's remaining lever (thinning probe clusters that are
+          # already a small fraction of K=1024) has much less headroom. Net effect is still
+          # unambiguously positive and bit-identical-recall at every point, and unlike
+          # term_eps alone (which decayed ~30-35% from T1->T80 at the largest ef), apr's
+          # incremental contribution does NOT decay under 80-thread contention here.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Full compact format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr]
+            - [[192,  900,  448,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [256, 1200,  512,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [320, 1600,  640,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [384, 2000,  768,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [512, 2500,  896,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5]]
     ArcFlare-A140-Ang:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
