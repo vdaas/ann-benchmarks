@@ -178,7 +178,7 @@ class ArcFlare(BaseANN):
             print('ArcFlare: index saved to', index_dir)
 
     def set_query_arguments(self, *args):
-        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1, wsb=0, fgf=-1]
+        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1, wsb=0, fgf=-1, sq4pfah=0, teps=-1]
         #   np    - n_probe: cluster probes (required)
         #   ef    - beam size (required)
         #   ncs   - n_cluster_seeds: seeds per probe (default 128)
@@ -190,6 +190,10 @@ class ArcFlare(BaseANN):
         #   feef  - fp16_early_exit_factor: fp16 beam early-exit factor (-1 = off)
         #   wsb   - weighted_seed_budget: allocate more seeds to nearby clusters (0=off, 1=on)
         #   fgf   - finger_gate_factor: FINGER triangle-inequality gate (-1 = off)
+        #   teps  - term_eps: early-term coefficient on the pool's already-computed approximate
+        #           distance (SearchParameters::term_eps). Structurally identical to NGT/ONNG's
+        #           `distance > explorationRadius` cutoff; reuses the existing pool distance so it
+        #           adds zero extra distance computation (unlike term_eps_fp16). -1 = off (default).
         if len(args) == 1 and isinstance(args[0], (list, tuple)):
             params = list(args[0])
         else:
@@ -217,6 +221,7 @@ class ArcFlare(BaseANN):
         self._weighted_seed_budget   = bool(int(params[9])) if len(params) > 9 else False
         self._finger_gate_factor     = float(params[10]) if len(params) > 10 else -1.0
         self._sq4_pfah               = int(params[11])   if len(params) > 11 else 0
+        self._term_eps               = float(params[12]) if len(params) > 12 else -1.0
         crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
         rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
         eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
@@ -224,10 +229,11 @@ class ArcFlare(BaseANN):
         feef_disp  = '{:.2f}'.format(self._fp16_early_exit_factor) if self._fp16_early_exit_factor >= 0 else 'off'
         fgf_disp   = '{:.2f}'.format(self._finger_gate_factor) if self._finger_gate_factor >= 0 else 'off'
         pfah_disp  = self._sq4_pfah if self._sq4_pfah > 0 else 'def'
-        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={},fgf={},sq4pfah={})'.format(
+        teps_disp  = '{:.2f}'.format(self._term_eps) if self._term_eps >= 0 else 'off'
+        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={},fgf={},sq4pfah={},teps={})'.format(
             self._n_probe, self._ef, self._n_cluster_seeds_s,
             self._presort_seed_mult, crinn_disp, rpqgm_disp, eps_disp, srg_disp, feef_disp,
-            1 if self._weighted_seed_budget else 0, fgf_disp, pfah_disp)
+            1 if self._weighted_seed_budget else 0, fgf_disp, pfah_disp, teps_disp)
 
     def query(self, v, n):
         return self._index.search(
@@ -240,6 +246,7 @@ class ArcFlare(BaseANN):
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
             beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
             term_eps_fp16            = float(self._term_eps_fp16),
+            term_eps                 = float(self._term_eps),
             seed_rpq_gate            = float(self._seed_rpq_gate),
             fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
             weighted_seed_budget     = bool(self._weighted_seed_budget),
@@ -260,6 +267,7 @@ class ArcFlare(BaseANN):
             crinn_no_improve_limit   = int(self._crinn_no_improve_limit),
             beam_rpq_gate_margin     = float(self._beam_rpq_gate_margin),
             term_eps_fp16            = float(self._term_eps_fp16),
+            term_eps                 = float(self._term_eps),
             seed_rpq_gate            = float(self._seed_rpq_gate),
             fp16_early_exit_factor   = float(self._fp16_early_exit_factor),
             weighted_seed_budget     = bool(self._weighted_seed_budget),

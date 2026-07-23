@@ -2339,6 +2339,25 @@ float:
                [384, 2000,  768,  24,  60],
                [512, 2500,  896],
                [512, 2500,  896,  24,  60]]
+        a140-ang-m96-k1024-teps:  # ADDITIVE: term_eps=0.4 A/B vs a140-ang-m96-k1024 baseline (2026-07-24)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # term_eps (SearchParameters::term_eps, cmd/sub_bench.hpp CLI wiring commit fa11685)
+            # reuses the beam pool's already-computed approximate distance for early
+            # termination -- structurally identical to NGT/ONNG's `distance >
+            # explorationRadius` cutoff, zero extra distance computation (unlike
+            # term_eps_fp16). Checker(opus)-verified: glove-100-angular 1T (np=64/ef=1400)
+            # gave bit-identical recall with +14-16% QPS at term_eps=0.4. Neutral-to-slightly
+            # negative at low-recall/small-ef, so scoped here to the high-recall/large-beam
+            # (ef>=900) operating points from a140-ang-m96-k1024 only -- same [np,ef,ncs] +
+            # explicit defaults (psm=24, crinn=0/auto, rpqgm=0.2, eps=-1/off) as that baseline,
+            # with term_eps=0.4 (last field) as the only delta, for a clean A/B.
+            # Full compact format here: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps]
+            - [[192,  900,  448,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [256, 1200,  512,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [320, 1600,  640,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [384, 2000,  768,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [512, 2500,  896,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
     ArcFlare-A140-Ang:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
