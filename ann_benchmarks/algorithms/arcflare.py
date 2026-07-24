@@ -68,6 +68,7 @@ class ArcFlare(BaseANN):
         self._seed_rpq_gate          = -1.0
         self._fp16_early_exit_factor = -1.0
         self._weighted_seed_budget   = False
+        self._scan_reorder          = -1
         self.name = 'ArcFlare'
 
     def fit(self, X):
@@ -179,7 +180,7 @@ class ArcFlare(BaseANN):
             print('ArcFlare: index saved to', index_dir)
 
     def set_query_arguments(self, *args):
-        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1, wsb=0, fgf=-1, sq4pfah=0, teps=-1, apr=0]
+        # Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1, wsb=0, fgf=-1, sq4pfah=0, teps=-1, apr=0, scan_reorder=-1]
         #   np    - n_probe: cluster probes (required)
         #   ef    - beam size (required)
         #   ncs   - n_cluster_seeds: seeds per probe (default 128)
@@ -201,6 +202,12 @@ class ArcFlare(BaseANN):
         #           (different pipeline stage: coarse-quantizer probe selection vs beam-loop early
         #           termination) — effects compound rather than overlap. 0 = off (default, matches
         #           SearchContext.hpp's adaptive_probe_ratio=0.0f).
+        #   scan_reorder - scan_reorder: enables searchScanTier() (src/ScanTier.cpp), an IVF-style
+        #           partition-scan search that bypasses the graph beam entirely. The value is BOTH
+        #           the dynamic-eps top-N capacity and the number of candidates handed to the fp16
+        #           exact rerank pass; n_probe controls how many centroid partitions are scanned.
+        #           adaptive_probe_ratio (apr) applies to this path too (wired in scan-tier-apr-wiring).
+        #           -1 = off (default, uses the graph beam path via Index.cpp).
         if len(args) == 1 and isinstance(args[0], (list, tuple)):
             params = list(args[0])
         else:
@@ -230,6 +237,7 @@ class ArcFlare(BaseANN):
         self._sq4_pfah               = int(params[11])   if len(params) > 11 else 0
         self._term_eps               = float(params[12]) if len(params) > 12 else -1.0
         self._adaptive_probe_ratio   = float(params[13]) if len(params) > 13 else 0.0
+        self._scan_reorder           = int(params[14])   if len(params) > 14 else -1
         crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
         rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
         eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
@@ -239,10 +247,11 @@ class ArcFlare(BaseANN):
         pfah_disp  = self._sq4_pfah if self._sq4_pfah > 0 else 'def'
         teps_disp  = '{:.2f}'.format(self._term_eps) if self._term_eps >= 0 else 'off'
         apr_disp   = '{:.2f}'.format(self._adaptive_probe_ratio) if self._adaptive_probe_ratio > 0 else 'off'
-        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={},fgf={},sq4pfah={},teps={},apr={})'.format(
+        scan_disp  = self._scan_reorder if self._scan_reorder > 0 else 'off'
+        self.name = 'ArcFlare(np={},ef={},ncs={},psm={},crinn={},rpqgm={},eps={},srg={},feef={},wsb={},fgf={},sq4pfah={},teps={},apr={},scan={})'.format(
             self._n_probe, self._ef, self._n_cluster_seeds_s,
             self._presort_seed_mult, crinn_disp, rpqgm_disp, eps_disp, srg_disp, feef_disp,
-            1 if self._weighted_seed_budget else 0, fgf_disp, pfah_disp, teps_disp, apr_disp)
+            1 if self._weighted_seed_budget else 0, fgf_disp, pfah_disp, teps_disp, apr_disp, scan_disp)
 
     def query(self, v, n):
         return self._index.search(
@@ -263,6 +272,7 @@ class ArcFlare(BaseANN):
             beam_mode                = str(self._beam_mode),
             finger_gate_factor       = float(self._finger_gate_factor),
             sq4_pfah                 = int(self._sq4_pfah),
+            scan_reorder             = int(self._scan_reorder),
         )
 
     def batch_query(self, X, n):
@@ -285,6 +295,7 @@ class ArcFlare(BaseANN):
             beam_mode                = str(self._beam_mode),
             finger_gate_factor       = float(self._finger_gate_factor),
             sq4_pfah                 = int(self._sq4_pfah),
+            scan_reorder             = int(self._scan_reorder),
         )
 
     def get_batch_results(self):

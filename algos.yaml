@@ -1687,6 +1687,20 @@ float:
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
           query-args:
             - [[16, 256, 64, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.3]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft-scantier:  # GIST-960 scan_tier, PROPOSED
+          # (2026-07-24, wire-scan-reorder-arcflare-py task): needs one fresh re-measurement
+          # pass through this now-wired python harness before trusting as a dated/measured
+          # row -- these numbers are CLI-only from scan-tier-apr-wiring, not yet confirmed
+          # under harness overhead. n_probe=64, scan_reorder=200, apr=0.5-0.7 -> recall~0.714
+          # (baseline-equivalent, +/-0.1%) for +50-90% QPS vs apr=0 (CLI-measured).
+          # NOTE: scan_tier's recall ceiling (~0.71-0.72) here is far below this same index's
+          # beam-path recall (0.99+) -- a separate, much-higher-QPS/lower-recall operating
+          # point, not a replacement for the beam rows above.
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
+          query-args:
+            # Full compact format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder]
+            - [[64, 256, 128, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.5, 200],
+               [64, 256, 128, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.7, 200]]
         e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft:  # GIST-960 sq4 beam (fastest ≥0.99)
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
           query-args:
@@ -2622,6 +2636,25 @@ float:
                [0.0, -1.0, 80, 0, 0,  600, 0, -1.0, 0, 0, 0, 320],
                [0.0, -1.0, 96, 0, 0,  800, 0, -1.0, 0, 0, 0, 320],
                [0.0, -1.0, 128, 0, 0,  800, 0, -1.0, 0, 0, 0, 384]]
+        a140-ang-fp16-scantier:  # NYTimes-256 scan_tier — PROPOSED (2026-07-24,
+          # wire-scan-reorder-arcflare-py task). Needs one fresh re-measurement pass through
+          # this now-wired python harness before trusting as a dated/measured row -- these
+          # numbers are CLI-only from scan-tier-apr-wiring, not yet confirmed under harness
+          # overhead. n_probe=32, scan_reorder=150, apr=0.3 -> recall~0.7094 (-0.16%,
+          # reproducible) for +7.7-9.9% QPS; apr=0.5 -> recall~0.711 (noise-level) for
+          # +3.9-8.9% QPS (CLI-measured).
+          # WARNING: this run-group's `args` (alpha=1.4, max_edges=64, k_clusters=256) is
+          # ALSO used by a140-ang-fp16 above for glove-100-angular. glove-100 + scan_tier is
+          # INDEPENDENTLY BROKEN (near-zero recall, confirmed on 2 different glove-100
+          # indices, scan-tier-apr-wiring task finding, root cause not yet investigated).
+          # Only run this row against nytimes-256-angular -- do NOT invoke it for
+          # glove-100-angular until that bug is fixed (glove100-scantier-nearzero-recall-bug
+          # task, pending).
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Full compact format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder]
+            - [[32, 256, 128, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.3, 150],
+               [32, 256, 128, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.5, 150]]
         a140-ang-fp16-rf2:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
