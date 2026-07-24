@@ -1625,13 +1625,43 @@ float:
                [4, 128, 32, 8, -1],
                [8, 256, 32, 8, -1]]
         a150-l2-m96k1024-rebuild-hnswgraft:  # GIST-960 fp16 beam
+          # BUGFIX (2026-07-24, gist960-full-recall-generalize task + orchestrator
+          # verification): arcflare.py's set_query_arguments auto-fills
+          # beam_rpq_gate_margin=0.2 for any <=5-element row with ef>=80 (all 4 rows here
+          # qualify). This SILENTLY DEGRADES recall vs the documented numbers below --
+          # independently re-verified pt1 [4,256,64,8,-1]: rpqgm=-1.0(off)=0.9812@410
+          # (matches doc) vs rpqgm=0.2(auto)=0.9564@409 (-2.5pt, same QPS -- pure recall
+          # loss, not a tradeoff). Made rpqgm explicit (-1.0) on all 4 rows to restore the
+          # documented/intended behavior; no other values changed.
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'graph': 'hnsw'}]
           query-args:
             # 1T: [4,256,64]=0.9812@378 [8,256,64]=0.9836@348 [8,512,64]=0.9929@235 [8,1024,64]=0.9959@151
-            - [[4, 256, 64, 8, -1],
-               [8, 256, 64, 8, -1],
-               [8, 512, 64, 8, -1],
-               [8, 1024, 64, 8, -1]]
+            - [[4, 256, 64, 8, -1, -1.0],
+               [8, 256, 64, 8, -1, -1.0],
+               [8, 512, 64, 8, -1, -1.0],
+               [8, 1024, 64, 8, -1, -1.0]]
+        a150-l2-m96k1024-rebuild-hnswgraft-teps:  # GIST-960 fp16 beam, ADDITIVE (2026-07-24)
+          # Adds a calibrated term_eps=0.3 row at the highest-recall operating point only
+          # (ef=256/512 showed no reproducible gain after reverse-order re-verification --
+          # negative, not included). 1T: 0.9957@182 (+17-19% vs 0.9959@153-155 baseline
+          # above, recall delta -0.0002 noise-level); 80T-avg-3rep +21% (811->982 QPS,
+          # recall bit-identical every rep).
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'graph': 'hnsw'}]
+          query-args:
+            - [[8, 1024, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.3]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft-apr:  # GIST-960 sq4 beam, ADDITIVE (2026-07-24)
+          # adaptive_probe_ratio on the hnswgraft champion is a smooth, non-collapsing
+          # recall/QPS knob here -- does NOT reproduce the "collapse" documented on the
+          # pre-graft e96-k256-a150-rebuild-rpq128-sq4-asym-beam group (algos.yaml ~line 574).
+          # term_eps gave no reproducible gain on this beam mode (negative, not included).
+          # 1T: 0.9898@391-394 (+24-26% vs 0.9907@311-315 baseline row 3 below; recall
+          # delta -0.09/-0.18pt, real but a non-dominated new Pareto point -- beats sq4 pt2
+          # (0.9864@442) on recall, beats sq4 pt3 (0.9907@311) on QPS). 80T-avg-3rep +15.8%
+          # (3660->4237 QPS, recall 0.9907->0.9898 identical every rep). Flips vs-ScaNN from
+          # -15% to +2% at this recall band.
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
+          query-args:
+            - [[16, 256, 64, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.3]]
         e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft:  # GIST-960 sq4 beam (fastest ≥0.99)
           args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
           query-args:
