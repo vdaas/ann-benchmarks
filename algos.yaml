@@ -1588,6 +1588,15 @@ float:
             - [[2, 64, 32, 8, -1],
                [4, 128, 32, 8, -1],
                [8, 256, 32, 8, -1]]
+        a140-l2-m64k256-hnswgraft-sq4-teps:  # ADDITIVE (2026-07-24), extends a140-l2-m64k256-hnswgraft-sq4.
+          # term_eps=0.4 calibrated on the champion Fashion-MNIST-784 SQ4 index; bit-identical
+          # recall at every row (fashionmnist-full-recall-generalize task).
+          # QPS deltas: np=2/ef=64 ~+1-2% (noise), np=4/ef=128 +10% (T80 +18%), np=8/ef=256 +27% (T80 +22%).
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            - [[2, 64,  32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [8, 256, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
         a140-l2-m96k1024-hnswgraft:  # SIFT-128
           args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
           query-args:
@@ -1624,6 +1633,22 @@ float:
                [2, 64, 32, 8, -1],
                [4, 128, 32, 8, -1],
                [8, 256, 32, 8, -1]]
+        a140-l2-m64k256-hnswgraft-teps:  # ADDITIVE (2026-07-24), extends a140-l2-m64k256-hnswgraft
+          # (fp16 beam). term_eps=0.4 calibrated on the champion Fashion-MNIST-784 fp16 index;
+          # bit-identical recall at every row (fashionmnist-full-recall-generalize task).
+          # NOTE (same task): vs Glass (SQ8U+FP16refine), the "全面勝ち" framing does NOT hold
+          # uniformly -- Glass is competitive-to-ahead in the low/mid recall band (0.93-0.996,
+          # both 1T/80T); AF's advantage is real but concentrated at recall>=~0.997, wider here
+          # with term_eps applied. vs ScaNN remains a clean win across the full recall band.
+          # QPS deltas: np=1/ef=32 ~0% (noise), np=2/ef=48 ~+1% (noise), np=2/ef=64 +6-8%,
+          # np=4/ef=128 +22-27% (T80 +24%), np=8/ef=256 +49-50% (T80 +62%).
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[1, 32,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 48,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 64,  32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [8, 256, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
         a150-l2-m96k1024-rebuild-hnswgraft:  # GIST-960 fp16 beam
           # BUGFIX (2026-07-24, gist960-full-recall-generalize task + orchestrator
           # verification): arcflare.py's set_query_arguments auto-fills
@@ -2217,6 +2242,13 @@ float:
                [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
                [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
         a140-ang-m64k1024-hnswgraft:  # GloVe-25 (requires low-dim fixes: fp16-exact non-batch + BeamPool all d_eff)
+          # REGRESSION FLAG (2026-07-24, glove25-full-recall-generalize task): fresh 1T
+          # remeasurement of the P3/P4 rows below is ~18-19% slower and 0.02-0.08pt lower
+          # recall than this comment's 2026-07-02 numbers, reproduced across repeats
+          # (P1/P2/P5 are within normal noise). 27 commits touched src/Index.cpp since
+          # 2026-07-02; root cause NOT isolated (ruled out: AF_IMPLICIT_RERANK, --tune
+          # prefetch, explicit vs auto beam_mode). Needs a dedicated bisection task before
+          # trusting this row's absolute QPS at face value.
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
           query-args:
             # 1T (Zen2, 2026-07-02): [2,32,16]=0.9839@4901 [4,64,32]=0.9858@4295
@@ -2226,6 +2258,31 @@ float:
                [4, 128, 32, 8, -1],
                [8, 256, 64, 8, -1],
                [8, 512, 64, 8, -1]]
+        a140-ang-m64k1024-hnswgraft-teps-apr:  # ADDITIVE (2026-07-24, glove25-full-recall-generalize
+          # task): per-point term_eps+adaptive_probe_ratio on top of the champion above. Only the
+          # 3 highest-ef points show measurable, reproducible gain -- np=2/4-probe points show
+          # ~0-3% (noise floor), NOT included here. Recall: np=4/ef=128 bit-identical 0.9932;
+          # np=8/ef=256 bit-identical 0.9953; np=8/ef=512 -0.0001 (reproduced 2x T80 + 1x T1).
+          # T1 gain: +2.5%/+4.3%/+20.2%. T80 gain (rep avg): +4.3%/+2.9%(noisy)/+35.8%.
+          # CORRECTED VERDICT (same task, full-Pareto not single-point comparison): Glass (same
+          # machine, SQ8U+FP16refine) actually WINS ~1.5-2.1x across most of the practical recall
+          # range (0.98-0.995) at both 1T/80T -- the mission's prior "1T AF 圧勝 2.5x" verdict
+          # compared AF's near-ceiling point against Glass's SLOWEST point, not recall-matched.
+          # AF only wins in the narrow tail beyond Glass's own recall ceiling (>=0.9946), and at
+          # 80T even that narrow win requires this teps+apr calibration (baseline alone LOSES to
+          # Glass at np=8/512). vs ScaNN: AF's 1T advantage (3-4x) holds and widens with
+          # calibration, but ScaNN wins decisively at 80T in the np=8/256-512 band (ScaNN's
+          # 1T->80T scaling is ~194x vs AF's ~33-37x). See task report for the full recall-band
+          # table. Also independently re-confirmed the "np=64/ef=1400 superadditive +268-276%"
+          # finding from adaptive-probe-ratio-validation is REAL (not a measurement artifact,
+          # interleaved-order reproduced) but Pareto-DOMINATED by the np=8/512 champion point
+          # even after the boost -- do not add oversized np/ef combos on the strength of that effect.
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr]
+            - [[4, 128, 32, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6, 1.5],
+               [8, 256, 64, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.8, 1.0],
+               [8, 512, 64, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.8, 0.5]]
         a140-ang-k1024-fp16:
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
