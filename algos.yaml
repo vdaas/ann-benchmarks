@@ -2153,6 +2153,39 @@ float:
                [8, 1024, 64, 8, -1],
                [16, 2048, 64, 8, -1],
                [32, 4096, 64, 8, -1]]
+        a140-ang-m96k1024-hnswgraft-teps:  # ADDITIVE: term_eps A/B vs a140-ang-m96k1024-hnswgraft
+          # (champion-hnswgraft-recalibrate, 2026-07-24). Per-point calibrated teps (NOT a single
+          # constant -- verified bit-identical recall on BOTH glove-100-angular AND
+          # nytimes-256-angular simultaneously, T1, build/cmd/arcflare direct). np<=4 (recall<0.95)
+          # showed NO material benefit on either dataset and are intentionally omitted here.
+          # T1 measured: np=8/ef512 teps=0.4 -> 0.9727@573(+3.2%)/0.9657@514(+12.2%)
+          #              np=8/ef1024 teps=0.5 -> 0.9861@364(+5.8%)/0.9750@310(+16.1%)
+          #              np=16/ef2048 teps=0.6 -> 0.9924@208(+5.6%)/0.9803@167(+16.8%)
+          #              np=32/ef4096 teps=0.5 -> 0.9941@123(+17.1%)/0.9819@99(+32.0%)
+          # Corrected competitor verdict (champion baseline, replaces any prior non-champion
+          # reading): vs ScaNN glove-100 recall~0.99 narrows 6.0x->5.7x (does not close); vs
+          # ONNG glove-100 narrows ~2.0x->1.9x (ONNG still wins, its edge is selective
+          # high-degree-graph traversal, a mechanism distinct from term_eps's early
+          # termination); vs ScaNN nytimes-256 gains land within the +33-45% predicted range
+          # from scann-gap-design-screening but the multiplicative gap still does not close.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[  8,  512,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [  8, 1024,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5],
+               [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5]]
+        a140-ang-m96k1024-hnswgraft-teps-aggr:  # OPTIONAL/aggressive variant: uniform teps=0.4,
+          # larger QPS gain at a tiny (<=0.0002pt) recall cost on glove-100 (nytimes np=32 is
+          # still bit-identical at this value). Present as a separate row so the safe variant
+          # above stays a clean, unambiguous bit-identical addition.
+          # T1: np=8/1024 -> 0.9860@377(+9.6%)/0.9750@318(+19.1%, bit-id)
+          #     np=16/2048 -> 0.9922@242(+22.8%)/0.9802@195(+36.4%)
+          #     np=32/4096 -> 0.9939@149(+41.9%)/0.9819@112(+49.3%, bit-id)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[  8, 1024,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
         a140-ang-m64k1024-hnswgraft:  # GloVe-25 (requires low-dim fixes: fp16-exact non-batch + BeamPool all d_eff)
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
           query-args:
@@ -2286,6 +2319,14 @@ float:
                [0.0, -1.0, 48, 0, 2, 300, 0, -1.0, 0, 0, 0, 192],
                [0.0, -1.0, 64, 0, 2, 400, 0, -1.0, 0, 0, 0, 256]]
         a140-ang-m96-k1024:
+          # NOTE (2026-07-24, champion-hnswgraft-recalibrate task): this run-group has NO
+          # 'graph':'hnsw' -- it is NOT the config used by docs/superpowers/specs/
+          # 2026-07-03-competitor-matrix.md's ScaNN/Glass/ONNG comparison (that used
+          # a140-ang-m96k1024-hnswgraft below, ~2.6-4x faster at matching recall). The
+          # term_eps/adaptive_probe_ratio calibration on THIS run-group
+          # (a140-ang-m96-k1024-teps/-apr-teps) is internally valid but must not be read as
+          # closing the ONNG/ScaNN gap -- see a140-ang-m96k1024-hnswgraft-teps for the
+          # champion-baseline calibration and the corrected competitor verdict.
           args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
           query-args:
             # Compact [np, ef, ncs] - M96/K1024 fp16 beam (80T):
