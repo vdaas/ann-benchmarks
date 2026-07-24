@@ -1193,6 +1193,17 @@ float:
         M-32:
           args: [{'M': 32, 'ef_construction': 200}]
           query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800, 1000, 1200, 1500, 2000]]
+        M-32-sq8u-fp16refine:  # ADDITIVE (2026-07-24): fixes a regression where refine_quant
+          # was never wired through to glass.Searcher() -- for euclidean datasets the
+          # default quantizer='SQ4U' with no refine hard-caps recall at ~0.84 regardless of
+          # ef (confirmed on sift-128-euclidean, sift128-full-recall-generalize task). This
+          # explicit SQ8U+FP16-refine config restores the original 2026-07-03
+          # competitor-matrix.md protocol ("Glass = pyglass d2296ec source, SQ8U+FP16 refine").
+          args: [{'M': 32, 'ef_construction': 200, 'quantizer': 'SQ8U', 'refine_quant': 'FP16'}]
+          query-args: [[40, 80, 120, 200, 400, 600, 800]]
+          # 2026-07-24 T1 standalone re-measurement (glass-sift-128-euclidean-M32.graph):
+          #   ef=40 0.9218@16878  ef=80 0.9720@10025  ef=120 0.9862@7391  ef=200 0.9945@5310
+          #   ef=400 0.9983@2803  ef=600 0.9989@1988  ef=800 0.9991@1519
         M-48:
           args: [{'M': 48, 'ef_construction': 200}]
           query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
@@ -1557,6 +1568,20 @@ float:
                [2, 128, 32, 8, -1],
                [4, 256, 64, 8, -1],
                [8, 512, 64, 8, -1]]
+        a140-l2-m96k1024-hnswgraft-sq4-teps:  # ADDITIVE (2026-07-24), extends
+          # a140-l2-m96k1024-hnswgraft-sq4. term_eps calibrated per-point on the champion
+          # SIFT-128 SQ4 index; bit-identical recall at every row (sift128-full-recall-generalize task).
+          # Format: [np, ef, ncs, psm, crinn, rpqgm, epsfp16, srg, feef, wsb, fgf, sq4pfah, teps]
+          # QPS deltas (1T): np=1/ef=32 +0.8-5.9%, np=1/ef=64 within noise, np=2/ef=112 +2.0%,
+          # np=2/ef=128 +3.2% (T80 +3-12%), np=4/ef=256 +2.6%, np=8/ef=512 +6.2%.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            - [[1, 32,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [1, 64,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 112, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [2, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [8, 512, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6]]
         a140-l2-m64k256-hnswgraft-sq4:  # Fashion-MNIST-784 SQ4 beam (80T: 0.9991@104092, 0.9997@61049)
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
           query-args:
@@ -1575,6 +1600,20 @@ float:
                [4, 256, 64, 8, 120],
                [4, 256, 64, 8, -1],
                [8, 512, 64, 8, -1]]
+        a140-l2-m96k1024-hnswgraft-teps:  # ADDITIVE (2026-07-24), extends a140-l2-m96k1024-hnswgraft
+          # (fp16 beam). term_eps calibrated per-point on the champion SIFT-128 fp16 index;
+          # bit-identical recall at every row (sift128-full-recall-generalize task).
+          # Format: [np, ef, ncs, psm, crinn, rpqgm, epsfp16, srg, feef, wsb, fgf, sq4pfah, teps]
+          # QPS deltas (1T): np=1/ef=24 +0.6%(noisy), np=2/ef=32 +10.6%, np=2/ef=64 +0.8%
+          # (T80 +1.1%), np=2/ef=128 +5.2%, np=4/ef=256 +0.3%, np=8/ef=512 +9.9%(T80 +11.3%).
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[1, 24,  8,  8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 32,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 64,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.8],
+               [8, 512, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6]]
         a140-l2-m64k256-hnswgraft:  # Fashion-MNIST-784
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
           query-args:

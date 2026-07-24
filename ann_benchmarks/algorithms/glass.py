@@ -18,6 +18,10 @@ class Glass(BaseANN):
         # SQ4U for L2 is fine since euclidean ranges compress well at 4 bits.
         default_quant = 'SQ8U' if self._metric == 'IP' else 'SQ4U'
         self._quant  = str(params.get('quantizer', default_quant))
+        # was never wired through to glass.Searcher() -- SQ4U/SQ8U without a refine
+        # pass hard-caps recall (SQ4U ~0.84 on sift-128-euclidean, confirmed 2026-07-24);
+        # default '' preserves prior behavior for anyone not explicitly requesting it.
+        self._refine_quant = str(params.get('refine_quant', ''))
         self._ef     = self._ef_con
         self._graph   = None
         self._data    = None
@@ -75,7 +79,8 @@ class Glass(BaseANN):
 
         self._searcher = glass.Searcher(
             graph=self._graph, data=self._data,
-            metric=self._metric, quantizer=self._quant)
+            metric=self._metric, quantizer=self._quant,
+            refine_quant=self._refine_quant)
         self._searcher.set_ef(self._ef)
         self._searcher.optimize()
         print('Glass: index ready')
