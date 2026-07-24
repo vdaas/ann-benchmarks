@@ -2256,13 +2256,14 @@ float:
                [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
                [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
         a140-ang-m64k1024-hnswgraft:  # GloVe-25 (requires low-dim fixes: fp16-exact non-batch + BeamPool all d_eff)
-          # REGRESSION FLAG (2026-07-24, glove25-full-recall-generalize task): fresh 1T
-          # remeasurement of the P3/P4 rows below is ~18-19% slower and 0.02-0.08pt lower
-          # recall than this comment's 2026-07-02 numbers, reproduced across repeats
-          # (P1/P2/P5 are within normal noise). 27 commits touched src/Index.cpp since
-          # 2026-07-02; root cause NOT isolated (ruled out: AF_IMPLICIT_RERANK, --tune
-          # prefetch, explicit vs auto beam_mode). Needs a dedicated bisection task before
-          # trusting this row's absolute QPS at face value.
+          # REGRESSION FLAG RESOLVED (2026-07-24, glove25-p3p4-regression-bisect task): the
+          # ~18-19% P3/P4 QPS deficit reported by glove25-full-recall-generalize did NOT
+          # reproduce with taskset-pinned, contention-free measurement across 3 commits
+          # (2026-07-02 / mid-range / current HEAD) -- recall was bit-identical to the
+          # 2026-07-02 numbers at all 3 points, and QPS was statistically indistinguishable
+          # once other concurrent swarm bench processes on this shared machine were ruled
+          # out. Confirmed phantom: a measurement artifact from CPU contention with sibling
+          # tasks running concurrently on this machine, not a code regression.
           args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
           query-args:
             # 1T (Zen2, 2026-07-02): [2,32,16]=0.9839@4901 [4,64,32]=0.9858@4295
