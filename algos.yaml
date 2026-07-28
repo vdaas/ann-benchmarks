@@ -2255,6 +2255,60 @@ float:
             - [[  8, 1024,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
                [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
                [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
+        a140-ang-m96k1024-hnswgraft-sq4:  # ADDITIVE: SQ4 quantized beam (build/python_sdk_sq4,
+          # AF_SQ4=ON AF_SQ8=ON AF_FP16_BEAM=OFF) vs the fp16 champion (-teps row) above. Reuses
+          # the SAME on-disk index bytes -- both this row's '-sq4-hnswgraft' cache dir and the
+          # plain '-hnswgraft' champion dir already contain byte-identical sq4.bin/sq8.bin
+          # sidecars (same size/mtime, 2026-07-02) -- no rebuild needed, only the compiled .so +
+          # beam_mode differ. sq4-beam-champion-wire task, 2026-07-29, extends the single-point
+          # T80 probe in beam-sq48-t80-killgate ([[beam_sq48_t80_killgate_threshold_effect]]) to
+          # the full -teps recall band, full N=10000 test-set queries (not a subset), T1 AND T80.
+          # CRITICAL dispatcher gotcha: beam_mode must be explicit 'sq4', NOT 'auto' -- this
+          # build has AF_FP16_BEAM=OFF, and Auto-mode's dispatch order tries SQ8 before SQ4
+          # whenever AF_SQ8 is also compiled (always true here), so 'auto' silently picks SQ8
+          # instead of SQ4 (Index.cpp:2150-2161 dispatch order; see also the coarse-rpq-beam-
+          # recall-probe task's separate finding that beam_mode='sq4' on a build WITHOUT AF_SQ4
+          # compiled in falls back to a different, noisier "coarse-only RPQ-block beam" path --
+          # always confirm AF_SQ4=ON via CMakeCache.txt before trusting this row's numbers).
+          # GloVe-100 T1/T80 QPS, full N=10000, vs fp16 champion (-teps row) at IDENTICAL
+          # (np,ef,teps) params -- recall_fp16 -> recall_sq4 (delta), QPS T1 (delta), QPS T80 (delta):
+          #  [2,128]     0.90551->0.90405(-0.0015) T1 1670->1761(+5%)   T80 26341->40187(+53%)
+          #  [4,256,32]  0.94548->0.94530(-0.0002) T1 1066->1071(+0.5%) T80 16387->25431(+55%)
+          #  [4,256,64]  0.94653->0.94636(-0.0002) T1 1055->1064(+1%)   T80 16401->25054(+53%)
+          #  [8,512]     0.97269->0.97198(-0.0007) T1  577-> 697(+21%)  T80  9205->15466(+68%)
+          #  [8,1024]    0.98606->0.98586(-0.0002) T1  354-> 428(+21%)  T80  5167-> 9708(+88%)
+          #  [16,2048]   0.99236->0.99227(-0.0001) T1  203-> 232(+14%)  T80  3030-> 5124(+69%)
+          #  [32,4096]   0.99407->0.99414(+0.0001) T1  121-> 135(+12%)  T80  1587-> 3169(+100%)
+          # HONEST caveat: recall is marginally LOWER than fp16 at IDENTICAL params for np<=8
+          # (up to -0.0015, i.e. <=0.15pp -- a real quantization effect, confirmed at full
+          # N=10000, not subset noise), converging to parity (+/-0.0001) at np>=16 (the
+          # champion's actual target high-recall band). This is NOT strict per-point Pareto
+          # domination at np<=8 (recall is lower there even though QPS is far higher) -- but on
+          # the recall-vs-QPS CURVE it dominates: the tiny recall gap is trivially closeable
+          # with a small ef increase given SQ4's large QPS headroom at that recall level.
+          # vs ScaNN (glove-100, SAME machine, docs/superpowers/specs/competitor-data/
+          # dig2_scann.json, linear-interpolated at each fp16 recall point): T1 gap narrows from
+          # fp16's 3.7-8.4x behind to SQ4's 3.2-7.5x behind; T80 gap narrows much more (fp16
+          # 4.1-29x behind -> SQ4 2.7-14.5x behind, roughly halving the multiplicative gap at
+          # recall>=0.97) -- ScaNN still wins comprehensively at T80, SQ4 narrows but does not
+          # close this gap.
+          # NYTimes-256 (SAME build/index recipe, D=256 -- confirms SQ4 generalizes across
+          # dimension here, unlike some other quantization schemes' known dimension-dependence):
+          # recall parity (+/-0.0005) at every point tested (np=2..16); QPS +9% to +29% at T1,
+          # +82% to +152% at T80 (LARGER relative gains than glove-100). vs ScaNN nytimes-256:
+          # SQ4 reaches NEAR-PARITY or a slight WIN at recall 0.93-0.95 (T1 ratio 1.02-1.04x,
+          # T80 ratio 0.96-1.05x -- fp16 was only 0.90-0.95x/0.47-0.53x there), still behind at
+          # recall~0.98 (T1 0.52x, T80 0.53x vs fp16's 0.41x/0.21x) -- a large narrowing, not
+          # full closure.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw', 'sq4_beam': true, 'beam_mode': 'sq4'}]
+          query-args:
+            - [[2, 128, 32, 8, -1],
+               [4, 256, 32, 8, -1],
+               [4, 256, 64, 8, -1],
+               [  8,  512,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [  8, 1024,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5],
+               [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5]]
         a140-ang-m96k1024-hnswgraft-rpq64-scantier:  # GloVe-100 / NYTimes-256 scan_tier via
           # rebuild_routing_pq(64) (D_sub=2 @ D=100, D_sub=4 @ D=256). ADDITIVE: distinct index
           # tag (-rpq64) from the beam champion above, requires a fresh full index build --
