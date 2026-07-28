@@ -2262,10 +2262,15 @@ float:
           # load (scantier-rpq64-champion-factcheck task finding). Built+harness-verified by
           # rpq64-champion-index-build-and-wire (2026-07-25/26).
           # scan_tier(rpq64=64) DOMINATES or ties the beam champion above across ~0.91-0.995
-          # recall (glove-100) / ~0.90-0.98 recall (nytimes-256) at T1/T16/T80 -- mechanism:
-          # the sharper D_sub=2/4 RoutingPQ filter (vs the coarse D_sub=8 auto-default) reaches
-          # these recall levels at scan_reorder=300-20000 instead of 8000-64000, keeping
-          # scan_tier's simpler SIMD kernel cheaper than beam's graph traversal.
+          # recall (glove-100) at T1/T16/T80 -- mechanism: the sharper D_sub=2/4 RoutingPQ filter
+          # (vs the coarse D_sub=8 auto-default) reaches these recall levels at
+          # scan_reorder=300-20000 instead of 8000-64000, keeping scan_tier's simpler SIMD kernel
+          # cheaper than beam's graph traversal.
+          # CORRECTION (2026-07-26/29, nytimes-k2048-parity-build task): on nytimes-256 this
+          # domination is a T80/throughput-mode phenomenon ONLY -- at T1 scan_tier and beam are
+          # roughly at parity (beam wins some points), verified by direct comparison against
+          # a140-ang-m96k1024-hnswgraft-teps's documented T1 numbers. Do not read "T1/T16/T80"
+          # above as applying to nytimes-256; it holds for glove-100 only.
           # GloVe-100 T1 in-process (np,ef=256,ncs=64,sr): [64,300]=0.9100@2154 [100,300]=0.9356@1574
           #   [150,300]=0.9548@1166 [200,300]=0.9669@941 [200,1000]=0.9699@759 [300,300]=0.9790@697
           #   [384,1000]=0.9883@488 [512,2000]=0.9922@335 [768,4000]=0.9945@201 [1024,8000]=0.9947@128
@@ -2295,6 +2300,25 @@ float:
                [256,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 8000],
                [256,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 12000],
                [384,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 20000]]
+        a140-ang-m96k1024-hnswgraft-rpq64-k2048-lowrecall:  # NYTimes-256 ADDITIVE, narrow band-
+          # extension ONLY. K=2048 (D_sub=4, ScaNN nl=2000 parity: 141.6 pts/partition vs
+          # ScaNN's 145) -- measured 2026-07-26, nytimes-k2048-parity-build task. MIXED verdict
+          # vs the K1024 rpq64-scantier row above: wins ONLY at recall 0.90-0.95 (+14-19% QPS,
+          # T1), REGRESSES -12% to -35% at recall>=0.97 (Pareto-dominated by the K1024 row there
+          # -- do NOT add those points here). Recall ceiling did not improve (0.9819 vs K1024's
+          # 0.9817). K1024 rpq64-scantier remains the champion for recall>=0.955; this row is a
+          # low-recall-band supplement only, not a replacement. Requires a SEPARATE fresh index
+          # build (routing_pq_m only fires on fresh build): {k_clusters:2048, routing_pq_m:64}
+          # vs the K1024 row's {k_clusters:1024, routing_pq_m:64}.
+          # T1 in-process (np,ef=256,ncs=64,sr): [128,1000]=0.9072@1236 [256,3000]=0.9539@500
+          # T80 (same points): [128,1000]=0.9072@40898 [256,3000]=0.9539@15430
+          # NOTE: a live same-grid K1024 T80/T16 re-measurement was not completed (shared
+          # bench-lock contention) -- treat the T80 comparison as directional.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 2048, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw', 'routing_pq_m': 64}]
+          query-args:
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder]
+            - [[128, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 1000],
+               [256, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 3000]]
         a140-ang-m64k1024-hnswgraft:  # GloVe-25 (requires low-dim fixes: fp16-exact non-batch + BeamPool all d_eff)
           # REGRESSION FLAG RESOLVED (2026-07-24, glove25-p3p4-regression-bisect task): the
           # ~18-19% P3/P4 QPS deficit reported by glove25-full-recall-generalize did NOT
