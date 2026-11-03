@@ -72,6 +72,47 @@ def _load_ext(var, legacy):
     return arcflare_ext
 
 
+def parse_query_args(args):
+    """Resolve set_query_arguments(*args) into effective parameters (pure, no side effects).
+
+    Returns (eff, autofilled): eff maps attribute-name suffix -> value; autofilled lists
+    the names ('rpqgm', 'eps') whose value was not given explicitly by the row.
+    """
+    if len(args) == 1 and isinstance(args[0], (list, tuple)):
+        params = list(args[0])
+    else:
+        params = list(args)
+    # Backward-compat: old 6/10/12-element format [ge, gt, np, mv, rf, ef, ...]
+    # detected by ge==0.0 and gt<0 as first two elements.
+    if (len(params) in {6, 10, 12} and
+            isinstance(params[0], float) and params[0] == 0.0 and
+            isinstance(params[1], float) and params[1] < 0):
+        np_v  = int(params[2])
+        ef_v  = int(params[5])
+        ncs_v = int(params[11]) if len(params) >= 12 and int(params[11]) > 0 else 128
+        params = [np_v, ef_v, ncs_v]
+    ef = int(params[1])
+    eff = dict(
+        n_probe               = int(params[0]),
+        ef                    = ef,
+        n_cluster_seeds_s     = int(params[2])   if len(params) > 2 else 128,
+        presort_seed_mult     = int(params[3])   if len(params) > 3 else 24,
+        crinn_no_improve_limit = int(params[4])  if len(params) > 4 else 0,
+        beam_rpq_gate_margin  = float(params[5]) if len(params) > 5 else (0.3 if ef < 80 else 0.2),
+        term_eps_fp16         = float(params[6]) if len(params) > 6 else (0.3 if ef < 80 else -1.0),
+        seed_rpq_gate         = float(params[7]) if len(params) > 7 else -1.0,
+        fp16_early_exit_factor = float(params[8]) if len(params) > 8 else -1.0,
+        weighted_seed_budget  = bool(int(params[9])) if len(params) > 9 else False,
+        finger_gate_factor    = float(params[10]) if len(params) > 10 else -1.0,
+        sq4_pfah              = int(params[11])   if len(params) > 11 else 0,
+        term_eps              = float(params[12]) if len(params) > 12 else -1.0,
+        adaptive_probe_ratio  = float(params[13]) if len(params) > 13 else 0.0,
+        scan_reorder          = int(params[14])   if len(params) > 14 else -1,
+    )
+    autofilled = [n for n, i in (('rpqgm', 5), ('eps', 6)) if len(params) <= i]
+    return eff, autofilled
+
+
 class ArcFlare(BaseANN):
     """ArcFlare: Vamana graph + multi-tier ADC (RoutingPQ + SQ8)."""
 
@@ -259,36 +300,22 @@ class ArcFlare(BaseANN):
         #           exact rerank pass; n_probe controls how many centroid partitions are scanned.
         #           adaptive_probe_ratio (apr) applies to this path too (wired in scan-tier-apr-wiring).
         #           -1 = off (default, uses the graph beam path via Index.cpp).
-        if len(args) == 1 and isinstance(args[0], (list, tuple)):
-            params = list(args[0])
-        else:
-            params = list(args)
-        # Backward-compat: old 6/10/12-element format [ge, gt, np, mv, rf, ef, ...]
-        # detected by ge==0.0 and gt<0 as first two elements.
-        if (len(params) in {6, 10, 12} and
-                isinstance(params[0], float) and params[0] == 0.0 and
-                isinstance(params[1], float) and params[1] < 0):
-            np_v  = int(params[2])
-            ef_v  = int(params[5])
-            ncs_v = int(params[11]) if len(params) >= 12 and int(params[11]) > 0 else 128
-            params = [np_v, ef_v, ncs_v]
-        self._n_probe = int(params[0])
-        self._ef      = int(params[1])
-        self._n_cluster_seeds_s      = int(params[2])   if len(params) > 2 else 128
-        self._presort_seed_mult      = int(params[3])   if len(params) > 3 else 24
-        self._crinn_no_improve_limit = int(params[4])   if len(params) > 4 else 0
-        self._beam_rpq_gate_margin   = float(params[5]) if len(params) > 5 \
-                                       else (0.3 if self._ef < 80 else 0.2)
-        self._term_eps_fp16          = float(params[6]) if len(params) > 6 \
-                                       else (0.3 if self._ef < 80 else -1.0)
-        self._seed_rpq_gate          = float(params[7]) if len(params) > 7 else -1.0
-        self._fp16_early_exit_factor = float(params[8]) if len(params) > 8 else -1.0
-        self._weighted_seed_budget   = bool(int(params[9])) if len(params) > 9 else False
-        self._finger_gate_factor     = float(params[10]) if len(params) > 10 else -1.0
-        self._sq4_pfah               = int(params[11])   if len(params) > 11 else 0
-        self._term_eps               = float(params[12]) if len(params) > 12 else -1.0
-        self._adaptive_probe_ratio   = float(params[13]) if len(params) > 13 else 0.0
-        self._scan_reorder           = int(params[14])   if len(params) > 14 else -1
+        eff, _ = parse_query_args(args)
+        self._n_probe                = eff['n_probe']
+        self._ef                     = eff['ef']
+        self._n_cluster_seeds_s      = eff['n_cluster_seeds_s']
+        self._presort_seed_mult      = eff['presort_seed_mult']
+        self._crinn_no_improve_limit = eff['crinn_no_improve_limit']
+        self._beam_rpq_gate_margin   = eff['beam_rpq_gate_margin']
+        self._term_eps_fp16          = eff['term_eps_fp16']
+        self._seed_rpq_gate          = eff['seed_rpq_gate']
+        self._fp16_early_exit_factor = eff['fp16_early_exit_factor']
+        self._weighted_seed_budget   = eff['weighted_seed_budget']
+        self._finger_gate_factor     = eff['finger_gate_factor']
+        self._sq4_pfah               = eff['sq4_pfah']
+        self._term_eps               = eff['term_eps']
+        self._adaptive_probe_ratio   = eff['adaptive_probe_ratio']
+        self._scan_reorder           = eff['scan_reorder']
         crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
         rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
         eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
