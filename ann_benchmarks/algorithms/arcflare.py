@@ -10,6 +10,47 @@ from ann_benchmarks.constants import INDEX_DIR
 os.environ.setdefault('AF_FP16_BEAM', '1')
 
 
+def _load_ext(var, legacy):
+    """Load arcflare_ext. var: variant suffix (None = default fp16 build).
+
+    Dir resolution: ARCFLARE_EXT_DIR[_<VAR>] (strict: no .so there is an error) ->
+    legacy hard-coded dir (lenient: no .so there falls back to an installed module).
+    A non-default variant never falls back to the generic ARCFLARE_EXT_DIR, and if any
+    ARCFLARE_EXT_DIR* is set its own variant var is required, so a single env var can't
+    silently run every variant on the same (e.g. fp16) .so. The engine exposes no
+    build-flag introspection, so the variant can't be verified from the loaded module.
+    """
+    import sys
+    import glob
+    import importlib.util
+    name = 'ARCFLARE_EXT_DIR' + ('_' + var if var else '')
+    given = sorted(k for k, v in os.environ.items() if k.startswith('ARCFLARE_EXT_DIR') and v)
+    if os.environ.get(name):
+        build, strict = os.environ[name], True
+    elif var and given:
+        raise FileNotFoundError('ArcFlare variant %s requested but %s is unset (set: %s)' % (
+            var, name, ', '.join(given)))
+    else:
+        build, strict = legacy, False
+    loaded = sys.modules.get('arcflare_ext')
+    if loaded is None or os.path.realpath(
+            os.path.dirname(getattr(loaded, '__file__', '') or '')) != os.path.realpath(build):
+        sos = sorted(glob.glob(build + '/arcflare_ext*.so'))
+        if sos:
+            spec = importlib.util.spec_from_file_location('arcflare_ext', sos[0])
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules['arcflare_ext'] = mod
+            spec.loader.exec_module(mod)
+            print('ArcFlare: loaded extension', sos[0])
+        elif strict:
+            raise FileNotFoundError('ArcFlare: no arcflare_ext*.so in %s (from %s)' % (build, name))
+        elif loaded is None:  # legacy dir has no .so: old behavior, use the installed module
+            import arcflare_ext  # noqa: E402
+            print('ArcFlare: using importable extension', getattr(arcflare_ext, '__file__', '?'))
+    import arcflare_ext  # noqa: E402,F811 (delayed import by design)
+    return arcflare_ext
+
+
 class ArcFlare(BaseANN):
     """ArcFlare: Vamana graph + multi-tier ADC (RoutingPQ + SQ8)."""
 
@@ -72,16 +113,10 @@ class ArcFlare(BaseANN):
         self.name = 'ArcFlare'
 
     def fit(self, X):
-        import sys as _sys
-        import glob as _glob
-        import importlib.util as _util
         # Python 3.14 find_spec() prefers the editable-install dist-info metadata over
         # sys.path entries, so a normal 'import arcflare_ext' always picks the
         # dist-packages copy.  Use spec_from_file_location to force-load the freshly
         # built .so from the build directory regardless of installed metadata.
-        # Extension dir resolution: ARCFLARE_EXT_DIR_<VARIANT> > ARCFLARE_EXT_DIR >
-        # legacy hard-coded build dir. A resolved dir with no .so is an error (no
-        # silent fallback to whatever 'arcflare_ext' happens to be importable).
         _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
         if self._soar:
             _BUILD, _VAR = _MAIN + '/build/python_sdk_soar', 'SOAR'
@@ -99,22 +134,7 @@ class ArcFlare(BaseANN):
             _BUILD, _VAR = _MAIN + '/build/python_sdk_fp32_sq8', 'SQ8'
         else:
             _BUILD, _VAR = _MAIN + '/build/python_sdk_fp16', None
-        _BUILD = (os.environ.get('ARCFLARE_EXT_DIR_' + _VAR) if _VAR else None) \
-            or os.environ.get('ARCFLARE_EXT_DIR') or _BUILD
-        _loaded = _sys.modules.get('arcflare_ext')
-        if _loaded is None or \
-                os.path.realpath(os.path.dirname(getattr(_loaded, '__file__', '') or '')) != os.path.realpath(_BUILD):
-            _sos = sorted(_glob.glob(_BUILD + '/arcflare_ext*.so'))
-            if not _sos:
-                raise FileNotFoundError(
-                    'ArcFlare: no arcflare_ext*.so in %s (set ARCFLARE_EXT_DIR%s)' % (
-                        _BUILD, '[_' + _VAR + ']' if _VAR else ''))
-            _spec = _util.spec_from_file_location('arcflare_ext', _sos[0])
-            _mod = _util.module_from_spec(_spec)
-            _sys.modules['arcflare_ext'] = _mod
-            _spec.loader.exec_module(_mod)
-            print('ArcFlare: loaded extension', _sos[0])
-        import arcflare_ext  # noqa: E402 (delayed import by design)
+        arcflare_ext = _load_ext(_VAR, _BUILD)
 
         n, d = X.shape
         angular = self._metric == 'angular'
