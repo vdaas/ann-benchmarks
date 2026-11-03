@@ -3306,3 +3306,23 @@ bit:
             - {"n_neighbors": 120, "diversify_prob": 0.125,
                "pruning_degree_multiplier":2.5, leaf_size: 35}
           query-args: [[0.16, 0.20, 0.24, 0.28, 0.32, 0.36]]
+    ArcFlareSet:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare_set
+      constructor: ArcFlareSet
+      base-args: ["@metric"]
+      run-groups:
+        # exact beam (sig_bits=0). MinHash routing (sig_bits>0) is dominated on kosarak/ml10m
+        # (ArcFlare docs/superpowers/specs/2026-11-03-set-index-minhash-routing-negative.md): not swept.
+        # Measured 2026-11-04, kosarak-jaccard, k=10, ann-benchmarks knn recall, 1 thread pinned (taskset -c 0),
+        # NO contenders, AVX2-only dev host, best of 3 runs. (recall, qps) per ef:
+        #   16:(0.8110,12238) 24:(0.8610,9829) 32:(0.8878,8245) 48:(0.9274,6306)
+        # ef >= 64 on this graph is dominated by the R64 group (e.g. R48 ef=64 0.9482@5173 < R64 ef=48 0.9484@5206).
+        R48-nnk64-a120:
+          args: [{'R': 48, 'nn_k': 64, 'alpha': 1.2, 'sig_bits': 0}]
+          query-args: [[16, 24, 32, 48]]
+        # Measured 2026-11-04 (same conditions): 16:(0.8536,10177) 24:(0.8950,8075) 32:(0.9188,6846)
+        #   48:(0.9484,5206) 64:(0.9642,4310) 96:(0.9766,3220) 128:(0.9840,2596) 192:(0.9892,1899) 256:(0.9914,1503)
+        R64-nnk96-a120:
+          args: [{'R': 64, 'nn_k': 96, 'alpha': 1.2, 'sig_bits': 0}]
+          query-args: [[16, 24, 32, 48, 64, 96, 128, 192, 256]]
