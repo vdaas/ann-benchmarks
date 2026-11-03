@@ -6,9 +6,13 @@ from ann_benchmarks.algorithms.base import BaseANN
 from ann_benchmarks.constants import INDEX_DIR
 from ann_benchmarks.algorithms.arcflare import _load_ext
 
-# SetIndex lives in the same nanobind module as the dense index; ARCFLARE_EXT_DIR must point at a
-# build that contains it (strict resolution in _load_ext: a .so missing there is an error).
-_LEGACY = '/home/kpango/go/src/github.com/vdaas/ArcFlare/build/python_sdk_fp16'
+def _ext():
+    """SetIndex lives in the same nanobind module as the dense index. With ARCFLARE_EXT_DIR set,
+    that dir must hold an arcflare_ext*.so (strict, via _load_ext); otherwise use the installed module."""
+    if os.environ.get('ARCFLARE_EXT_DIR'):
+        return _load_ext(None, '')
+    import arcflare_ext
+    return arcflare_ext
 
 
 class ArcFlareSet(BaseANN):
@@ -19,7 +23,8 @@ class ArcFlareSet(BaseANN):
     """
 
     def __init__(self, metric, params):
-        assert metric == 'jaccard', 'ArcFlareSet supports jaccard only, got %r' % metric
+        if metric != 'jaccard':
+            raise ValueError('ArcFlareSet supports jaccard only, got %r' % metric)
         self._R = int(params.get('R', 48))
         self._nn_k = int(params.get('nn_k', 64))
         self._alpha = float(params.get('alpha', 1.2))
@@ -31,7 +36,7 @@ class ArcFlareSet(BaseANN):
         self.name = 'ArcFlareSet'
 
     def fit(self, X):
-        ext = _load_ext(None, _LEGACY)
+        ext = _ext()
         if not hasattr(ext, 'SetIndex'):
             raise RuntimeError('arcflare_ext has no SetIndex; point ARCFLARE_EXT_DIR at a build with SetIndex')
         n = len(X)
@@ -39,7 +44,10 @@ class ArcFlareSet(BaseANN):
         offsets = np.zeros(n + 1, dtype=np.uint64)
         np.cumsum(lens, out=offsets[1:])
         items64 = np.concatenate([np.asarray(x, dtype=np.int64) for x in X])
-        assert items64.size == 0 or (items64.min() >= 0 and items64.max() < 2 ** 32)
+        if items64.size and (items64.min() < 0 or items64.max() >= 2 ** 32):
+            raise ValueError('set element ids must fit in uint32')
+        if n >= 2 ** 32 - 1:
+            raise ValueError('too many rows')
         items = np.ascontiguousarray(items64, dtype=np.uint32)
         # cache tag: every parameter that affects the encoded data, plus a checksum of the data itself
         crc = zlib.crc32(items.tobytes(), zlib.crc32(offsets.tobytes()))
@@ -48,15 +56,20 @@ class ArcFlareSet(BaseANN):
         index_dir = os.path.join(os.environ.get('ARCFLARE_SET_INDEX_DIR', INDEX_DIR), tag)
         self._index = ext.SetIndex(R=self._R, nn_k=self._nn_k, alpha=self._alpha, sig_bits=self._sig_bits,
                                    n_landmark=self._n_landmark, seed=self._seed)
+        loaded = False
         if os.path.exists(os.path.join(index_dir, 'setindex.bin')):
-            print('ArcFlareSet: loading cached index from', index_dir)
-            self._index.load(index_dir)
-        else:
+            try:
+                print('ArcFlareSet: loading cached index from', index_dir)
+                self._index.load(index_dir)
+                loaded = True
+            except (RuntimeError, ValueError) as e:  # corrupt/stale cache: rebuild instead of failing the run
+                print('ArcFlareSet: cache unusable (%s); rebuilding' % e)
+        if not loaded:
             print('ArcFlareSet: building n=%d nnz=%d R=%d nn_k=%d alpha=%.2f sig=%d' % (
                 n, items.size, self._R, self._nn_k, self._alpha, self._sig_bits))
             self._index.build(offsets, items, self._nt)
             os.makedirs(index_dir, exist_ok=True)
-            self._index.save(index_dir)
+            self._index.save(index_dir)  # atomic (tmp + rename) in C++
 
     def set_query_arguments(self, ef, rerank=0, n_entry=0):
         self._ef, self._rerank, self._n_entry = int(ef), int(rerank), int(n_entry)
