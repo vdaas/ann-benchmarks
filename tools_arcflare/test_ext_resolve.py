@@ -15,7 +15,8 @@ SQ4 = sys.argv[2] if len(sys.argv) > 2 else T02 + 'build-py-sq4'
 EMPTY = tempfile.mkdtemp()
 NOLEGACY = os.path.join(EMPTY, 'no-such-legacy-dir')
 
-# Body runs in the child: load each (var) in order, print the resulting module file.
+# Body runs in the child: load each (var) in order, print the resulting module file
+# (an exception stops the child; stdout keeps the results printed before it).
 CHILD = """
 import sys
 sys.path.insert(0, %r)
@@ -62,10 +63,32 @@ check('default variant with only a variant env set: legacy/installed path, no er
 rc, out, err = run({'ARCFLARE_EXT_DIR_SQ4': SQ4}, ['SQ4'])
 check('SQ4 env only: loads SQ4 dir', rc == 0 and ('RESULT SQ4 ' + SQ4) in out, (rc, out, err[-400:]))
 
-rc, out, err = run({'ARCFLARE_EXT_DIR': FP16, 'ARCFLARE_EXT_DIR_SQ4': SQ4}, ['SQ4', None, 'SQ4'])
-res = [l for l in out.splitlines() if l.startswith('RESULT')]
-check('generic=fp16 + SQ4 env: sq4 -> fp16 -> sq4 in one process each load their own dir',
-      rc == 0 and len(res) == 3 and SQ4 in res[0] and FP16 in res[1] and SQ4 in res[2], (rc, out, err[-400:]))
+rc, out, err = run({'ARCFLARE_EXT_DIR_SQ4': SQ4}, ['SQ4', 'SQ4'])
+check('same file requested twice: reuse OK',
+      rc == 0 and out.count('RESULT SQ4 ' + SQ4) == 2, (rc, out, err[-400:]))
+
+rc, out, err = run({'ARCFLARE_EXT_DIR': FP16, 'ARCFLARE_EXT_DIR_SQ4': SQ4}, ['SQ4', None])
+check('different file after first load (sq4 then fp16): error',
+      rc != 0 and out.count('RESULT') == 1 and 'already loaded in this process' in err, (rc, out, err[-400:]))
+
+rc, out, err = run({'ARCFLARE_EXT_DIR_SQ4': SQ4}, ['SQ4', None])
+check('checker scenario: SQ4 env only, then default with empty legacy dir: error, no silent reuse',
+      rc != 0 and out.count('RESULT') == 1 and 'already loaded in this process' in err, (rc, out, err[-400:]))
+
+# Checker repro: something put the SQ4 .so into sys.modules before our first _load_ext.
+PRELOAD = """
+import importlib.util, sys
+sys.path.insert(0, %r)
+spec = importlib.util.spec_from_file_location('arcflare_ext', __import__('glob').glob(%r + '/arcflare_ext*.so')[0])
+mod = importlib.util.module_from_spec(spec); sys.modules['arcflare_ext'] = mod; spec.loader.exec_module(mod)
+from ann_benchmarks.algorithms.arcflare import _load_ext
+print('RESULT', _load_ext(None, %r).__file__)
+""" % (ROOT, SQ4, NOLEGACY)
+clean = {k: v for k, v in os.environ.items() if not k.startswith('ARCFLARE_EXT_DIR')}
+p = subprocess.run([sys.executable, '-I', '-c', PRELOAD], env=clean, capture_output=True, text=True, cwd=EMPTY)
+check('sq4 .so pre-loaded into sys.modules, no env, default with empty legacy dir: error',
+      p.returncode != 0 and 'RESULT' not in p.stdout and 'already loaded in this process' in p.stderr,
+      (p.returncode, p.stdout, p.stderr[-400:]))
 
 print('%d failed' % len(fails))
 sys.exit(1 if fails else 0)

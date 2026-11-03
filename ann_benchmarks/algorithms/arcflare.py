@@ -10,18 +10,25 @@ from ann_benchmarks.constants import INDEX_DIR
 os.environ.setdefault('AF_FP16_BEAM', '1')
 
 
+_PIN = None  # (realpath of the arcflare_ext file loaded in this process, came from plain import?)
+
+
 def _load_ext(var, legacy):
     """Load arcflare_ext. var: variant suffix (None = default fp16 build).
 
     Dir resolution: ARCFLARE_EXT_DIR[_<VAR>] (strict: no .so there is an error) ->
     legacy hard-coded dir (lenient: no .so there falls back to an installed module).
     A non-default variant never falls back to the generic ARCFLARE_EXT_DIR, and if any
-    ARCFLARE_EXT_DIR* is set its own variant var is required, so a single env var can't
-    silently run every variant on the same (e.g. fp16) .so. The engine exposes no
-    build-flag introspection, so the variant can't be verified from the loaded module.
+    ARCFLARE_EXT_DIR* is set its own variant var is required.
+    The first successful load pins the extension file for the process (hot-swapping
+    nanobind modules under one name is unsafe); a later call that resolves to a different
+    file raises. The engine exposes no build-flag introspection, so the variant can't be
+    verified from the loaded module itself.
     """
+    global _PIN
     import sys
     import glob
+    import importlib.machinery
     import importlib.util
     name = 'ARCFLARE_EXT_DIR' + ('_' + var if var else '')
     given = sorted(k for k, v in os.environ.items() if k.startswith('ARCFLARE_EXT_DIR') and v)
@@ -32,22 +39,36 @@ def _load_ext(var, legacy):
             var, name, ', '.join(given)))
     else:
         build, strict = legacy, False
+    sos = sorted(glob.glob(build + '/arcflare_ext*.so'))
+    if not sos and strict:
+        raise FileNotFoundError('ArcFlare: no arcflare_ext*.so in %s (from %s)' % (build, name))
+    target = os.path.realpath(sos[0]) if sos else None  # None: use the installed module
     loaded = sys.modules.get('arcflare_ext')
-    if loaded is None or os.path.realpath(
-            os.path.dirname(getattr(loaded, '__file__', '') or '')) != os.path.realpath(build):
-        sos = sorted(glob.glob(build + '/arcflare_ext*.so'))
-        if sos:
-            spec = importlib.util.spec_from_file_location('arcflare_ext', sos[0])
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules['arcflare_ext'] = mod
-            spec.loader.exec_module(mod)
-            print('ArcFlare: loaded extension', sos[0])
-        elif strict:
-            raise FileNotFoundError('ArcFlare: no arcflare_ext*.so in %s (from %s)' % (build, name))
-        elif loaded is None:  # legacy dir has no .so: old behavior, use the installed module
-            import arcflare_ext  # noqa: E402
-            print('ArcFlare: using importable extension', getattr(arcflare_ext, '__file__', '?'))
-    import arcflare_ext  # noqa: E402,F811 (delayed import by design)
+    if _PIN is None and loaded is not None:  # imported by someone else
+        _PIN = (os.path.realpath(loaded.__file__), False)  # origin unknown: verify via PathFinder
+    if _PIN is not None:
+        if target is None:
+            spec = importlib.machinery.PathFinder.find_spec('arcflare_ext')
+            ok = _PIN[1] or (spec is not None and spec.origin is not None
+                             and os.path.realpath(spec.origin) == _PIN[0])
+        else:
+            ok = target == _PIN[0]
+        if not ok:
+            raise RuntimeError(
+                'ArcFlare: a different arcflare_ext (%s) is already loaded in this process; '
+                'run variant %s in a separate process' % (_PIN[0], var or 'default'))
+        return sys.modules['arcflare_ext']
+    if target:
+        spec = importlib.util.spec_from_file_location('arcflare_ext', target)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules['arcflare_ext'] = mod
+        spec.loader.exec_module(mod)
+        _PIN = (target, False)
+        print('ArcFlare: loaded extension', target)
+        return mod
+    import arcflare_ext  # noqa: E402 (delayed import by design; legacy dir has no .so)
+    _PIN = (os.path.realpath(arcflare_ext.__file__), True)
+    print('ArcFlare: using importable extension', arcflare_ext.__file__)
     return arcflare_ext
 
 
