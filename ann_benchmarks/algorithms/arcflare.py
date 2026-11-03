@@ -79,31 +79,41 @@ class ArcFlare(BaseANN):
         # sys.path entries, so a normal 'import arcflare_ext' always picks the
         # dist-packages copy.  Use spec_from_file_location to force-load the freshly
         # built .so from the build directory regardless of installed metadata.
+        # Extension dir resolution: ARCFLARE_EXT_DIR_<VARIANT> > ARCFLARE_EXT_DIR >
+        # legacy hard-coded build dir. A resolved dir with no .so is an error (no
+        # silent fallback to whatever 'arcflare_ext' happens to be importable).
         _MAIN     = '/home/kpango/go/src/github.com/vdaas/ArcFlare'
         if self._soar:
-            _BUILD = _MAIN + '/build/python_sdk_soar'
+            _BUILD, _VAR = _MAIN + '/build/python_sdk_soar', 'SOAR'
         elif self._saq_fp16:
-            _BUILD = _MAIN + '/build_saq_fp16'
+            _BUILD, _VAR = _MAIN + '/build_saq_fp16', 'SAQ_FP16'
         elif self._saq:
-            _BUILD = _MAIN + '/build_soar_saq'
+            _BUILD, _VAR = _MAIN + '/build_soar_saq', 'SAQ'
         elif self._bapq:
-            _BUILD = _MAIN + '/build/python_sdk_bapq'
+            _BUILD, _VAR = _MAIN + '/build/python_sdk_bapq', 'BAPQ'
         elif self._sq2_beam:
-            _BUILD = _MAIN + '/build/python_sdk_sq2'
+            _BUILD, _VAR = _MAIN + '/build/python_sdk_sq2', 'SQ2'
         elif self._sq4_beam:
-            _BUILD = _MAIN + '/build/python_sdk_sq4'
+            _BUILD, _VAR = _MAIN + '/build/python_sdk_sq4', 'SQ4'
         elif self._sq8_beam:
-            _BUILD = _MAIN + '/build/python_sdk_fp32_sq8'
+            _BUILD, _VAR = _MAIN + '/build/python_sdk_fp32_sq8', 'SQ8'
         else:
-            _BUILD = _MAIN + '/build/python_sdk_fp16'
+            _BUILD, _VAR = _MAIN + '/build/python_sdk_fp16', None
+        _BUILD = (os.environ.get('ARCFLARE_EXT_DIR_' + _VAR) if _VAR else None) \
+            or os.environ.get('ARCFLARE_EXT_DIR') or _BUILD
         _loaded = _sys.modules.get('arcflare_ext')
-        if _loaded is None or not getattr(_loaded, '__file__', '').startswith(_BUILD):
+        if _loaded is None or \
+                os.path.realpath(os.path.dirname(getattr(_loaded, '__file__', '') or '')) != os.path.realpath(_BUILD):
             _sos = sorted(_glob.glob(_BUILD + '/arcflare_ext*.so'))
-            if _sos:
-                _spec = _util.spec_from_file_location('arcflare_ext', _sos[0])
-                _mod = _util.module_from_spec(_spec)
-                _sys.modules['arcflare_ext'] = _mod
-                _spec.loader.exec_module(_mod)
+            if not _sos:
+                raise FileNotFoundError(
+                    'ArcFlare: no arcflare_ext*.so in %s (set ARCFLARE_EXT_DIR%s)' % (
+                        _BUILD, '[_' + _VAR + ']' if _VAR else ''))
+            _spec = _util.spec_from_file_location('arcflare_ext', _sos[0])
+            _mod = _util.module_from_spec(_spec)
+            _sys.modules['arcflare_ext'] = _mod
+            _spec.loader.exec_module(_mod)
+            print('ArcFlare: loaded extension', _sos[0])
         import arcflare_ext  # noqa: E402 (delayed import by design)
 
         n, d = X.shape
