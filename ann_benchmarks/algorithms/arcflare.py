@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import os
+import warnings
 import numpy as np
 from ann_benchmarks.algorithms.base import BaseANN
 from ann_benchmarks.constants import INDEX_DIR
@@ -10,6 +11,7 @@ from ann_benchmarks.constants import INDEX_DIR
 os.environ.setdefault('AF_FP16_BEAM', '1')
 
 
+_AUTOFILL_WARNED = False  # warn once per process when rpqgm/eps are auto-filled
 _PIN = None  # (realpath of the arcflare_ext file loaded in this process, came from plain import?)
 
 
@@ -300,7 +302,15 @@ class ArcFlare(BaseANN):
         #           exact rerank pass; n_probe controls how many centroid partitions are scanned.
         #           adaptive_probe_ratio (apr) applies to this path too (wired in scan-tier-apr-wiring).
         #           -1 = off (default, uses the graph beam path via Index.cpp).
-        eff, _ = parse_query_args(args)
+        eff, autofilled = parse_query_args(args)
+        global _AUTOFILL_WARNED
+        if autofilled and not _AUTOFILL_WARNED:
+            _AUTOFILL_WARNED = True
+            warnings.warn(
+                'ArcFlare: query args %r left %s to auto-fill (rpqgm 0.3/0.2 and eps 0.3/-1 by ef); '
+                'auto-fill can cost recall (sift np16/ef200: 0.9838 -> 0.8319). Pass rpqgm/eps explicitly.'
+                % (list(args[0]) if len(args) == 1 and isinstance(args[0], (list, tuple)) else list(args),
+                   '/'.join(autofilled)), stacklevel=2)
         self._n_probe                = eff['n_probe']
         self._ef                     = eff['ef']
         self._n_cluster_seeds_s      = eff['n_cluster_seeds_s']

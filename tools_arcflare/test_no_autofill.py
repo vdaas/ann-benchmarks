@@ -33,6 +33,26 @@ class ParseQueryArgs(unittest.TestCase):
         self.assertEqual(auto, ['rpqgm', 'eps'])
 
 
+class RuntimeWarning_(unittest.TestCase):
+    def test_warns_once(self):
+        import warnings
+        from ann_benchmarks.algorithms import arcflare
+        a = arcflare.ArcFlare('euclidean', {})
+        arcflare._AUTOFILL_WARNED = False
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            a.set_query_arguments([16, 200])
+            a.set_query_arguments([16, 200])
+            a.set_query_arguments([16, 200, 128, 24, 0, 0.2, -1.0])
+        self.assertEqual(len(w), 1)
+        self.assertIn('rpqgm/eps', str(w[0].message))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            arcflare._AUTOFILL_WARNED = False
+            a.set_query_arguments([16, 200, 128, 24, 0, 0.2, -1.0])
+        self.assertEqual(len(w), 0)
+
+
 class AlgosYaml(unittest.TestCase):
     def test_no_row_relies_on_autofill(self):
         rows = check_autofill.resolve(os.path.join(check_autofill.ROOT, 'algos.yaml'))
