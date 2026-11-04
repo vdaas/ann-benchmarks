@@ -1,6 +1,6 @@
 """Every ArcFlare query-arg combination, expanded by ann_benchmarks.definitions.get_definitions
 (the loader run.py uses), must be accepted by set_query_arguments(*group) and resolve to
-n_probe > 0 and ef > 0."""
+(n_probe > 0 or == -1 graph_entry) and ef > 0."""
 import os
 import sys
 import unittest
@@ -12,6 +12,8 @@ sys.path.insert(0, ROOT)
 from ann_benchmarks.algorithms.arcflare import parse_query_args  # noqa: E402
 from ann_benchmarks.algorithms.definitions import get_definitions  # noqa: E402
 
+# n_probe < 0 selects graph_entry seeding in src/Index.cpp (documented in algos.yaml a140-l2-graph-entry)
+GRAPH_ENTRY = -1
 YAML = os.path.join(ROOT, 'algos.yaml')
 
 
@@ -42,9 +44,9 @@ class TestQueryArgsValid(unittest.TestCase):
         type_err = [r for r in runs if r[6]]
         if type_err:
             self.fail('%d TypeError runs in %s' % (len(type_err), sorted({r[2] for r in type_err})))
-        bad = [r for r in runs if r[5] is None or r[5]['n_probe'] <= 0 or r[5]['ef'] <= 0]
+        bad = [r for r in runs if r[5] is None or (r[5]['n_probe'] <= 0 and r[5]['n_probe'] != GRAPH_ENTRY) or r[5]['ef'] <= 0]
         if bad:
-            self.fail('%d of %d runs have n_probe<=0 or ef<=0; first: %s'
+            self.fail('%d of %d runs have n_probe not in (>0, -1) or ef<=0; first: %s'
                       % (len(bad), len(runs), [(b[2], b[4]) for b in bad[:3]]))
 
 
