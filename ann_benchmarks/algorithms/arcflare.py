@@ -110,6 +110,10 @@ def parse_query_args(args):
         term_eps              = float(params[12]) if len(params) > 12 else -1.0,
         adaptive_probe_ratio  = float(params[13]) if len(params) > 13 else 0.0,
         scan_reorder          = int(params[14])   if len(params) > 14 else -1,
+        hnsw_seed             = bool(int(params[15])) if len(params) > 15 else False,
+        sq4u                  = bool(int(params[16])) if len(params) > 16 else False,
+        pf2hop                = bool(int(params[17])) if len(params) > 17 else False,
+        scan_tier             = bool(int(params[18])) if len(params) > 18 else False,
     )
     autofilled = [n for n, i in (('rpqgm', 5), ('eps', 6)) if len(params) <= i]
     return eff, autofilled
@@ -127,8 +131,13 @@ class ArcFlare(BaseANN):
         self._n_seeds     = int(params.get('n_cluster_seeds',    32))
         self._reorder     = str(params.get('reorder',        'gorder'))
         self._soar        = bool(params.get('soar',           False))
+        self._soar_orthogonal = bool(params.get('soar_orthogonal', False))
+        self._avq_threshold = float(params.get('avq_threshold', float('nan')))
+        self._build_sq4u  = bool(params.get('build_sq4u',     False))
+        self._graft_hnsw_upper = bool(params.get('graft_hnsw_upper', False))
         self._rebuild     = bool(params.get('rebuild',        False))
         self._routing_pq_m = int(params.get('routing_pq_m',    0))  # 0 = default (auto)
+        self._rpq_raw_space = bool(params.get('rpq_raw_space', False))
         # sq8_beam: use AF_SQ8=ON, AF_FP16_BEAM=OFF build (SQ8 int8 beam, 2x memory bandwidth vs fp16)
         self._sq8_beam    = bool(params.get('sq8_beam',       False))
         # sq4_beam: use AF_SQ4=ON, AF_SQ8=ON, AF_FP16_BEAM=OFF build (~4x smaller beam footprint)
@@ -174,6 +183,10 @@ class ArcFlare(BaseANN):
         self._fp16_early_exit_factor = -1.0
         self._weighted_seed_budget   = False
         self._scan_reorder          = -1
+        self._hnsw_seed             = bool(params.get('hnsw_seed', False))
+        self._sq4u                  = bool(params.get('sq4u', False))
+        self._pf2hop                = bool(params.get('pf2hop', False))
+        self._scan_tier             = bool(params.get('scan_tier', False))
         self.name = 'ArcFlare'
 
     def fit(self, X):
@@ -211,8 +224,14 @@ class ArcFlare(BaseANN):
             '-soar' if self._soar else '',
             '-rpq{}'.format(self._routing_pq_m) if self._routing_pq_m > 0 else '',
             '-saqfp16' if self._saq_fp16 else ('-saq' if self._saq else ('-bapq' if self._bapq else ('-sq2' if self._sq2_beam else ('-sq4-asym' if (self._sq4_beam and self._sq4_asym) else ('-sq4' if self._sq4_beam else ''))))))
-        if self._graph_mode == 'hnsw':
+        if self._graph_mode == 'hnsw' or self._graft_hnsw_upper:
             tag += '-hnswgraft'
+        if self._build_sq4u:
+            tag += '-sq4u'
+        if self._rpq_raw_space:
+            tag += '-raw'
+        if not np.isnan(self._avq_threshold):
+            tag += '-avq{:.2f}'.format(self._avq_threshold)
         index_dir = os.path.join(INDEX_DIR, tag)
 
         self._index = arcflare_ext.ArcFlare(
@@ -246,10 +265,18 @@ class ArcFlare(BaseANN):
             self._index.build_multi_tier(n_threads=n_threads)
             print('ArcFlare: reordering for cache locality (%s)...' % self._reorder)
             self._index.reorder_locality(self._reorder)
-            if self._routing_pq_m > 0:
-                print('ArcFlare: rebuilding RoutingPQ (m=%d)...' % self._routing_pq_m)
-                self._index.rebuild_routing_pq(self._routing_pq_m)
-            if self._graph_mode == 'hnsw':
+            if self._routing_pq_m > 0 or not np.isnan(self._avq_threshold) or self._rpq_raw_space:
+                print('ArcFlare: rebuilding RoutingPQ (m=%d, avq=%.3f, raw=%s)...' % (
+                    self._routing_pq_m, self._avq_threshold, self._rpq_raw_space))
+                try:
+                    self._index.rebuild_routing_pq(
+                        self._routing_pq_m, float(self._avq_threshold), raw_space=self._rpq_raw_space)
+                except TypeError:
+                    self._index.rebuild_routing_pq(self._routing_pq_m, float(self._avq_threshold))
+            if self._soar and hasattr(self._index, 'enable_soar_secondary'):
+                print('ArcFlare: enabling SOAR secondary partitions (orthogonal=%s)...' % self._soar_orthogonal)
+                self._index.enable_soar_secondary(self._soar_orthogonal)
+            if self._graph_mode == 'hnsw' or self._graft_hnsw_upper:
                 import hnswlib  # delayed: only needed for graph=hnsw
                 import tempfile
                 space = 'cosine' if angular else 'l2'
@@ -264,11 +291,17 @@ class ArcFlare(BaseANN):
                 os.close(fd)
                 try:
                     hp.save_index(tmp)
-                    print('ArcFlare: grafting hnswlib level-0 graph...')
-                    self._index.graft_hnsw(tmp)
+                    print('ArcFlare: grafting hnswlib level-0 + upper graph...')
+                    if self._graft_hnsw_upper and hasattr(self._index, 'graft_hnsw_upper'):
+                        self._index.graft_hnsw_upper(tmp)
+                    else:
+                        self._index.graft_hnsw(tmp)
                 finally:
                     if os.path.exists(tmp):
                         os.remove(tmp)
+            if self._build_sq4u:
+                print('ArcFlare: building SQ4U codebook/codes...')
+                self._index.build_sq4u()
             os.makedirs(index_dir, exist_ok=True)
             self._index.save(index_dir)
             print('ArcFlare: index saved to', index_dir)
@@ -326,6 +359,15 @@ class ArcFlare(BaseANN):
         self._term_eps               = eff['term_eps']
         self._adaptive_probe_ratio   = eff['adaptive_probe_ratio']
         self._scan_reorder           = eff['scan_reorder']
+        n_params = len(args[0]) if (len(args) == 1 and isinstance(args[0], (list, tuple))) else len(args)
+        if 'hnsw_seed' in eff and n_params > 15:
+            self._hnsw_seed = eff['hnsw_seed']
+        if 'sq4u' in eff and n_params > 16:
+            self._sq4u = eff['sq4u']
+        if 'pf2hop' in eff and n_params > 17:
+            self._pf2hop = eff['pf2hop']
+        if 'scan_tier' in eff and n_params > 18:
+            self._scan_tier = eff['scan_tier']
         crinn_disp = self._crinn_no_improve_limit if self._crinn_no_improve_limit > 0 else 'auto'
         rpqgm_disp = '{:.2f}'.format(self._beam_rpq_gate_margin) if self._beam_rpq_gate_margin >= 0 else 'off'
         eps_disp   = '{:.2f}'.format(self._term_eps_fp16) if self._term_eps_fp16 >= 0 else 'off'
@@ -361,6 +403,10 @@ class ArcFlare(BaseANN):
             finger_gate_factor       = float(self._finger_gate_factor),
             sq4_pfah                 = int(self._sq4_pfah),
             scan_reorder             = int(self._scan_reorder),
+            hnsw_seed                = bool(self._hnsw_seed),
+            sq4u                     = bool(self._sq4u),
+            pf2hop                   = bool(self._pf2hop),
+            scan_tier                = bool(self._scan_tier),
         )
 
     def batch_query(self, X, n):
@@ -384,6 +430,10 @@ class ArcFlare(BaseANN):
             finger_gate_factor       = float(self._finger_gate_factor),
             sq4_pfah                 = int(self._sq4_pfah),
             scan_reorder             = int(self._scan_reorder),
+            hnsw_seed                = bool(self._hnsw_seed),
+            sq4u                     = bool(self._sq4u),
+            pf2hop                   = bool(self._pf2hop),
+            scan_tier                = bool(self._scan_tier),
         )
 
     def get_batch_results(self):

@@ -83,7 +83,18 @@ class ArcFlareSet(BaseANN):
         return self._index.search(v, n, self._ef, self._rerank, self._n_entry)
 
     def batch_query(self, X, n):
-        self._res = [self.query(v, n) for v in X]
+        if hasattr(self._index, 'search_batch'):
+            nq = len(X)
+            lens = np.fromiter((len(x) for x in X), dtype=np.uint64, count=nq)
+            q_off = np.zeros(nq + 1, dtype=np.uint64)
+            np.cumsum(lens, out=q_off[1:])
+            q_items = np.ascontiguousarray(
+                np.concatenate([np.asarray(x, dtype=np.uint32) for x in X]) if q_off[-1] > 0 else np.empty(0, dtype=np.uint32),
+                dtype=np.uint32)
+            res2d = self._index.search_batch(q_off, q_items, int(n), self._ef, self._rerank, self._n_entry, 0)
+            self._res = [row[row >= 0] for row in res2d]
+        else:
+            self._res = [self.query(v, n) for v in X]
 
     def get_batch_results(self):
         return self._res

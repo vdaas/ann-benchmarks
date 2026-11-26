@@ -646,6 +646,38 @@ float:
                [60, 160, 72, 20, 70, -1.0, -1.0],
                [64, 140, 72, 20, 60, -1.0, -1.0],
                [64, 160, 72, 20, 70, -1.0, -1.0]]
+        wave5-sq4u-hnswseed:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'build_sq4u': true, 'graft_hnsw_upper': true, 'hnsw_m': 32, 'hnsw_efc': 500, 'hnsw_seed': true, 'sq4u': true, 'pf2hop': true}]
+          query-args:
+            # Explicit 19-elem compact rows: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder, hnsw_seed, sq4u, pf2hop, scan_tier]
+            # Wave 2/3/5 verified Zen 2 AVX2 non-dominated SQ4U + HNSW upper-layer seed + 2-hop prefetch points:
+            #   sift-128 / fashion-784 / glove-25 (ef=24..96) / nytimes-256 (ef=64..1300) / gist-960 (ef=96..560)
+            - [[1,   24, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   32, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   48, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   64, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   96, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  140, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  200, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  320, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  560, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1, 1300, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0]]
+        wave5-fp16-hnswseed:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'graft_hnsw_upper': true, 'hnsw_m': 32, 'hnsw_efc': 500, 'beam_mode': 'fp16', 'hnsw_seed': true}]
+          query-args:
+            # Explicit 19-elem compact rows: lastfm-64-dot Wave 3/5 champion (ef=60: 0.9817, ef=100: 0.9909, 100% #1 vs SCaNN)
+            - [[1,  32, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1,  48, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1,  60, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1, 100, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1, 160, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0]]
+        wave5-scantier-k2048-raw50:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 2048, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'routing_pq_m': 50, 'avq_threshold': 0.2, 'rpq_raw_space': true, 'sq4_beam': true, 'scan_tier': true}]
+          query-args:
+            # Explicit 19-elem compact rows: glove-100-angular ScanTier K=2048 M=50 raw=1 AVQ=0.2 (np=60/125/420, scan_reorder=130/220/600)
+            - [[ 60, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 130, 0, 0, 0, 1],
+               [125, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 220, 0, 0, 0, 1],
+               [420, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 600, 0, 0, 0, 1]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
@@ -3279,11 +3311,12 @@ bit:
         # (ArcFlare docs/superpowers/specs/2026-11-03-set-index-minhash-routing-negative.md): not swept.
         # Measured 2026-11-04, kosarak-jaccard, k=10, ann-benchmarks knn recall, 1 thread pinned (taskset -c 0),
         # NO contenders, AVX2-only dev host, best of 3 runs. (recall, qps) per ef:
-        #   16:(0.8110,12238) 24:(0.8610,9829) 32:(0.8878,8245) 48:(0.9274,6306)
-        # ef >= 64 on this graph is dominated by the R64 group (e.g. R48 ef=64 0.9482@5173 < R64 ef=48 0.9484@5206).
+        # Measured 2026-11-26 (Wave 4 SetIndex AVX2, kosarak-jaccard, k=10, recall_annb, c30 / 1T / b64):
+        #   48:(0.9276, 6661.9 / 7035.7 / 126092.6)  64:(0.9480, 5095.3 / 5821.8 / 103921.4)
+        #   96:(0.9636, 3712.2 / 4308.1 / 77025.3)   320:(0.9910, 1486.1 / 1520.1 / 30853.0)
         R48-nnk64-a120:
           args: [{'R': 48, 'nn_k': 64, 'alpha': 1.2, 'sig_bits': 0}]
-          query-args: [[16, 24, 32, 48]]
+          query-args: [[16, 24, 32, 48, 64, 96, 128, 192, 256, 320]]
         # Measured 2026-11-04 (same conditions): 16:(0.8536,10177) 24:(0.8950,8075) 32:(0.9188,6846)
         #   48:(0.9484,5206) 64:(0.9642,4310) 96:(0.9766,3220) 128:(0.9840,2596) 192:(0.9892,1899) 256:(0.9914,1503)
         R64-nnk96-a120:
