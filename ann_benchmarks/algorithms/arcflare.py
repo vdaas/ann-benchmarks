@@ -138,6 +138,7 @@ class ArcFlare(BaseANN):
         self._rebuild     = bool(params.get('rebuild',        False))
         self._routing_pq_m = int(params.get('routing_pq_m',    0))  # 0 = default (auto)
         self._rpq_raw_space = bool(params.get('rpq_raw_space', False))
+        self._rpq_residual  = bool(params.get('rpq_residual',  False))
         # sq8_beam: use AF_SQ8=ON, AF_FP16_BEAM=OFF build (SQ8 int8 beam, 2x memory bandwidth vs fp16)
         self._sq8_beam    = bool(params.get('sq8_beam',       False))
         # sq4_beam: use AF_SQ4=ON, AF_SQ8=ON, AF_FP16_BEAM=OFF build (~4x smaller beam footprint)
@@ -228,8 +229,10 @@ class ArcFlare(BaseANN):
             tag += '-hnswgraft'
         if self._build_sq4u:
             tag += '-sq4u'
-        if self._rpq_raw_space:
+        if self._rpq_raw_space or self._rpq_residual:
             tag += '-raw'
+        if self._rpq_residual:
+            tag += '-res'
         if not np.isnan(self._avq_threshold):
             tag += '-avq{:.2f}'.format(self._avq_threshold)
         index_dir = os.path.join(INDEX_DIR, tag)
@@ -265,14 +268,19 @@ class ArcFlare(BaseANN):
             self._index.build_multi_tier(n_threads=n_threads)
             print('ArcFlare: reordering for cache locality (%s)...' % self._reorder)
             self._index.reorder_locality(self._reorder)
-            if self._routing_pq_m > 0 or not np.isnan(self._avq_threshold) or self._rpq_raw_space:
-                print('ArcFlare: rebuilding RoutingPQ (m=%d, avq=%.3f, raw=%s)...' % (
-                    self._routing_pq_m, self._avq_threshold, self._rpq_raw_space))
+            if self._routing_pq_m > 0 or not np.isnan(self._avq_threshold) or self._rpq_raw_space or self._rpq_residual:
+                print('ArcFlare: rebuilding RoutingPQ (m=%d, avq=%.3f, raw=%s, res=%s)...' % (
+                    self._routing_pq_m, self._avq_threshold, self._rpq_raw_space, self._rpq_residual))
                 try:
                     self._index.rebuild_routing_pq(
-                        self._routing_pq_m, float(self._avq_threshold), raw_space=self._rpq_raw_space)
+                        self._routing_pq_m, float(self._avq_threshold),
+                        raw_space=self._rpq_raw_space, residual=self._rpq_residual)
                 except TypeError:
-                    self._index.rebuild_routing_pq(self._routing_pq_m, float(self._avq_threshold))
+                    try:
+                        self._index.rebuild_routing_pq(
+                            self._routing_pq_m, float(self._avq_threshold), raw_space=self._rpq_raw_space)
+                    except TypeError:
+                        self._index.rebuild_routing_pq(self._routing_pq_m, float(self._avq_threshold))
             if self._soar and hasattr(self._index, 'enable_soar_secondary'):
                 print('ArcFlare: enabling SOAR secondary partitions (orthogonal=%s)...' % self._soar_orthogonal)
                 self._index.enable_soar_secondary(self._soar_orthogonal)

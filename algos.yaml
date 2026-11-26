@@ -678,6 +678,13 @@ float:
             - [[ 60, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 130, 0, 0, 0, 1],
                [125, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 220, 0, 0, 0, 1],
                [420, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 600, 0, 0, 0, 1]]
+        wave10-scantier-k2048-res50:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 2048, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'routing_pq_m': 50, 'avq_threshold': 0.2, 'rpq_raw_space': true, 'rpq_residual': true, 'sq4_beam': true, 'scan_tier': true}]
+          query-args:
+            # Explicit 19-elem compact rows: Wave 10 glove-100-angular Residual-AVQ ScanTier (0.90/0.95/0.99 = np=50/108/405, sr=100/190/310)
+            - [[ 50, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 100, 0, 0, 0, 1],
+               [108, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 190, 0, 0, 0, 1],
+               [405, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 310, 0, 0, 0, 1]]
     ArcFlare-A16:
       docker-tag: ann-benchmarks-arcflare
       module: ann_benchmarks.algorithms.arcflare
