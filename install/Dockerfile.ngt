@@ -1,13 +1,27 @@
-FROM ann-benchmarks
+FROM ubuntu:20.04
 
-RUN apt-get update
-RUN apt-get install -y git cmake g++ python3 python3-setuptools python3-pip
-RUN pip3 install wheel pybind11
-RUN git clone https://github.com/yahoojapan/ngt.git
-RUN mkdir -p ngt/build
-RUN cd ngt/build && cmake ..
-RUN cd ngt/build && make && make install
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip python3-dev python3-numpy python3-scipy \
+    build-essential cmake g++ git \
+    libblas-dev liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies compatible with Python 3.8
+RUN pip3 install --upgrade pip && \
+    pip3 install numpy h5py psutil scipy scikit-learn \
+        pyyaml ansicolors jinja2 docker wheel pybind11
+
+# Build NGT-labs/NGT 2.7.4 from source
+RUN git -c credential.helper= clone --depth=1 https://github.com/NGT-labs/NGT.git /ngt
+RUN mkdir -p /ngt/build && cd /ngt/build && cmake .. && make -j$(nproc) && make install
 RUN ldconfig
-RUN cd ngt/python && python3 setup.py bdist_wheel
-RUN pip3 install ngt/python/dist/ngt-*-linux_x86_64.whl
+RUN cd /ngt/python && python3 setup.py bdist_wheel && \
+    pip3 install dist/ngt-*-linux_x86_64.whl
 
+WORKDIR /home/app
+COPY run_algorithm.py ./
+COPY ann_benchmarks ./ann_benchmarks
+
+ENTRYPOINT ["python3", "-u", "run_algorithm.py"]

@@ -1,5 +1,783 @@
 float:
   any:
+    ArcFlare:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a150-ep32:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # fp16 beam — better graph (alpha=1.5, ep=32, cs=128) targeting recall > 0.95 @ QPS > 7315
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[16, 64, 128, 24, 0, 0.3, 0.3],
+               [16, 128, 128, 24, 0, 0.2, -1.0],
+               [16, 200, 128, 24, 0, 0.2, -1.0],
+               [16, 300, 128, 24, 0, 0.2, -1.0],
+               [16, 400, 128, 24, 0, 0.2, -1.0],
+               [16, 500, 128, 24, 0, 0.2, -1.0],
+               [20, 200, 128, 24, 0, 0.2, -1.0],
+               [20, 300, 128, 24, 0, 0.2, -1.0],
+               [20, 400, 128, 24, 0, 0.2, -1.0],
+               [20, 500, 128, 24, 0, 0.2, -1.0],
+               [24, 200, 128, 24, 0, 0.2, -1.0],
+               [24, 300, 128, 24, 0, 0.2, -1.0],
+               [24, 400, 128, 24, 0, 0.2, -1.0],
+               [24, 500, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 240, 128, 24, 0, 0.2, -1.0],
+               [32, 260, 128, 24, 0, 0.2, -1.0],
+               [32, 280, 128, 24, 0, 0.2, -1.0],
+               [32, 300, 128, 24, 0, 0.2, -1.0],
+               [32, 400, 128, 24, 0, 0.2, -1.0],
+               [32, 500, 128, 24, 0, 0.2, -1.0]]
+        e64-k256-a150-v2:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # GIST-960 validated: fp16 beam (AF_FP16_BEAM=1 default)
+            # K=256 alpha=1.5 beats ScaNN (0.936@1276 QPS) at multiple points:
+            #   np=24 ef=60: recall=0.9412@1869 QPS (+46% over ScaNN)
+            #   np=32 ef=80: recall=0.9631@1363 QPS (+7%, +2.7% recall)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[10, 80, 128, 24, 0, 0.2, -1.0],
+               [12, 80, 128, 24, 0, 0.2, -1.0],
+               [14, 80, 128, 24, 0, 0.2, -1.0],
+               [16, 50, 128, 24, 0, 0.3, 0.3],
+               [16, 60, 128, 24, 0, 0.3, 0.3],
+               [16, 80, 128, 24, 0, 0.2, -1.0],
+               [20, 50, 128, 24, 0, 0.3, 0.3],
+               [20, 60, 128, 24, 0, 0.3, 0.3],
+               [20, 80, 128, 24, 0, 0.2, -1.0],
+               [22, 60, 128, 24, 0, 0.3, 0.3],
+               [24, 60, 128, 24, 0, 0.3, 0.3],
+               [24, 80, 128, 24, 0, 0.2, -1.0],
+               [24, 100, 128, 24, 0, 0.2, -1.0],
+               [28, 80, 128, 24, 0, 0.2, -1.0],
+               [32, 80, 128, 24, 0, 0.2, -1.0],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [40, 80, 128, 24, 0, 0.2, -1.0],
+               [40, 100, 128, 24, 0, 0.2, -1.0],
+               [40, 120, 128, 24, 0, 0.2, -1.0],
+               [48, 80, 128, 24, 0, 0.2, -1.0],
+               [64, 80, 128, 24, 0, 0.2, -1.0],
+               [64, 100, 128, 24, 0, 0.2, -1.0],
+               [80, 80, 128, 24, 0, 0.2, -1.0],
+               [96, 80, 128, 24, 0, 0.2, -1.0],
+               [128, 80, 128, 24, 0, 0.2, -1.0],
+               # ncs=64/80/96/128: GIST-960 Glass M=32 ef=200 (0.9460@1676) 超えポイント (SQ8 seeding済み)
+               # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+               # ncs=64
+               [16, 60, 64, 24, 0, 0.3, 0.3],
+               [20, 60, 64, 24, 0, 0.3, 0.3],
+               [24, 60, 64, 24, 0, 0.3, 0.3],
+               [32, 80, 64, 24, 0, 0.2, -1.0],
+               [40, 120, 64, 24, 0, 0.2, -1.0],
+               # ncs=80: recall=0.9393-0.9456, QPS=1531-1841
+               [32, 80, 80, 24, 0, 0.2, -1.0],
+               [36, 80, 80, 24, 0, 0.2, -1.0],
+               [40, 80, 80, 24, 0, 0.2, -1.0],
+               # ncs=96: Glass ef=200 超え確認 np=36 → recall=0.9463 @ QPS=1707
+               [32, 80, 96, 24, 0, 0.2, -1.0],
+               [36, 80, 96, 24, 0, 0.2, -1.0],
+               [40, 80, 96, 24, 0, 0.2, -1.0],
+               [44, 80, 96, 24, 0, 0.2, -1.0],
+               # ncs=128: recall=0.9454-0.9607, QPS=1017-1720
+               [16, 60, 128, 24, 0, 0.3, 0.3],
+               [24, 60, 128, 24, 0, 0.3, 0.3],
+               [32, 80, 128, 24, 0, 0.2, -1.0],
+               [40, 80, 128, 24, 0, 0.2, -1.0],
+               [48, 80, 128, 24, 0, 0.2, -1.0],
+               [56, 80, 128, 24, 0, 0.2, -1.0],
+               [64, 80, 128, 24, 0, 0.2, -1.0],
+               # ef=96 + ncs=128: recall=0.9607@QPS=1017
+               [40, 96, 128, 24, 0, 0.2, -1.0],
+               [48, 96, 128, 24, 0, 0.2, -1.0],
+               [64, 96, 128, 24, 0, 0.2, -1.0],
+               # ef=128 + ncs=128: recall=0.9644@QPS=964
+               [40, 128, 128, 24, 0, 0.2, -1.0],
+               [48, 128, 128, 24, 0, 0.2, -1.0],
+               [64, 128, 128, 24, 0, 0.2, -1.0],
+               # ncs=160: recall=0.9624-0.9661
+               [40, 96, 160, 24, 0, 0.2, -1.0],
+               [48, 96, 160, 24, 0, 0.2, -1.0],
+               [64, 96, 160, 24, 0, 0.2, -1.0],
+               [40, 128, 160, 24, 0, 0.2, -1.0],
+               [48, 128, 160, 24, 0, 0.2, -1.0],
+               [64, 128, 160, 24, 0, 0.2, -1.0],
+               [80, 128, 160, 24, 0, 0.2, -1.0],
+               # ncs=192: recall=0.9667-0.9674
+               [40, 128, 192, 24, 0, 0.2, -1.0],
+               [48, 128, 192, 24, 0, 0.2, -1.0],
+               [64, 128, 192, 24, 0, 0.2, -1.0],
+               [80, 128, 192, 24, 0, 0.2, -1.0]]
+        e64-k256-a150-np:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # Higher n_probe (36-48) with lower ef: more cluster coverage, fewer beam expansions
+            # np=36-40 probes 14-16% of clusters, ef=160-220 enough for recall>0.96
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[36, 160, 128, 24, 0, 0.2, -1.0],
+               [36, 180, 128, 24, 0, 0.2, -1.0],
+               [36, 200, 128, 24, 0, 0.2, -1.0],
+               [36, 220, 128, 24, 0, 0.2, -1.0],
+               [36, 240, 128, 24, 0, 0.2, -1.0],
+               [40, 120, 128, 24, 0, 0.2, -1.0],
+               [40, 140, 128, 24, 0, 0.2, -1.0],
+               [40, 160, 128, 24, 0, 0.2, -1.0],
+               [40, 180, 128, 24, 0, 0.2, -1.0],
+               [40, 200, 128, 24, 0, 0.2, -1.0],
+               [40, 220, 128, 24, 0, 0.2, -1.0],
+               [44, 120, 128, 24, 0, 0.2, -1.0],
+               [44, 140, 128, 24, 0, 0.2, -1.0],
+               [44, 160, 128, 24, 0, 0.2, -1.0],
+               [44, 180, 128, 24, 0, 0.2, -1.0],
+               [44, 200, 128, 24, 0, 0.2, -1.0],
+               [48, 100, 128, 24, 0, 0.2, -1.0],
+               [48, 120, 128, 24, 0, 0.2, -1.0],
+               [48, 140, 128, 24, 0, 0.2, -1.0],
+               [48, 160, 128, 24, 0, 0.2, -1.0],
+               [48, 180, 128, 24, 0, 0.2, -1.0],
+               [52, 100, 128, 24, 0, 0.2, -1.0],
+               [52, 120, 128, 24, 0, 0.2, -1.0],
+               [52, 140, 128, 24, 0, 0.2, -1.0],
+               [52, 160, 128, 24, 0, 0.2, -1.0]]
+        e64-k256:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder'}]
+          query-args:
+            # [gamma_enq, gamma_term, n_probe, max_visits, rerank_factor, ef]
+            # fp16 beam (AF_FP16_BEAM=1), no gates, explicit ef — HNSW-quality recall curve
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[16, 32, 128, 24, 0, 0.3, 0.3],
+               [16, 48, 128, 24, 0, 0.3, 0.3],
+               [16, 64, 128, 24, 0, 0.3, 0.3],
+               [16, 96, 128, 24, 0, 0.2, -1.0],
+               [16, 128, 128, 24, 0, 0.2, -1.0],
+               [16, 200, 128, 24, 0, 0.2, -1.0],
+               [16, 400, 128, 24, 0, 0.2, -1.0],
+               [16, 450, 128, 24, 0, 0.2, -1.0],
+               [16, 500, 128, 24, 0, 0.2, -1.0],
+               [16, 550, 128, 24, 0, 0.2, -1.0],
+               [16, 600, 128, 24, 0, 0.2, -1.0],
+               [20, 300, 128, 24, 0, 0.2, -1.0],
+               [20, 400, 128, 24, 0, 0.2, -1.0],
+               [20, 420, 128, 24, 0, 0.2, -1.0],
+               [20, 440, 128, 24, 0, 0.2, -1.0],
+               [20, 460, 128, 24, 0, 0.2, -1.0],
+               [20, 480, 128, 24, 0, 0.2, -1.0],
+               [20, 500, 128, 24, 0, 0.2, -1.0],
+               [20, 600, 128, 24, 0, 0.2, -1.0],
+               [24, 300, 128, 24, 0, 0.2, -1.0],
+               [24, 400, 128, 24, 0, 0.2, -1.0],
+               [24, 420, 128, 24, 0, 0.2, -1.0],
+               [24, 440, 128, 24, 0, 0.2, -1.0],
+               [24, 460, 128, 24, 0, 0.2, -1.0],
+               [24, 480, 128, 24, 0, 0.2, -1.0],
+               [24, 500, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 400, 128, 24, 0, 0.2, -1.0],
+               [32, 420, 128, 24, 0, 0.2, -1.0],
+               [32, 500, 128, 24, 0, 0.2, -1.0],
+               [32, 600, 128, 24, 0, 0.2, -1.0]]
+        e64-k256-a14:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # High-recall index (alpha=1.4, 32 entry pts, 128 seeds) — targets recall>0.95
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[16, 64, 128, 24, 0, 0.3, 0.3],
+               [16, 128, 128, 24, 0, 0.2, -1.0],
+               [16, 200, 128, 24, 0, 0.2, -1.0],
+               [16, 300, 128, 24, 0, 0.2, -1.0],
+               [16, 400, 128, 24, 0, 0.2, -1.0],
+               [16, 480, 128, 24, 0, 0.2, -1.0],
+               [20, 300, 128, 24, 0, 0.2, -1.0],
+               [20, 400, 128, 24, 0, 0.2, -1.0],
+               [20, 480, 128, 24, 0, 0.2, -1.0],
+               [20, 600, 128, 24, 0, 0.2, -1.0],
+               [24, 300, 128, 24, 0, 0.2, -1.0],
+               [24, 400, 128, 24, 0, 0.2, -1.0],
+               [24, 480, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 400, 128, 24, 0, 0.2, -1.0],
+               [32, 600, 128, 24, 0, 0.2, -1.0],
+               # nytimes-256 ScaNN超え: np=40 ef=500 → recall=0.9117@2402 vs ScaNN 0.9016@2239
+               [40, 400, 128, 24, 0, 0.2, -1.0],
+               [40, 500, 128, 24, 0, 0.2, -1.0],
+               [40, 600, 128, 24, 0, 0.2, -1.0],
+               [48, 500, 128, 24, 0, 0.2, -1.0],
+               [48, 600, 128, 24, 0, 0.2, -1.0],
+               [64, 600, 128, 24, 0, 0.2, -1.0],
+               [64, 800, 128, 24, 0, 0.2, -1.0],
+               [96, 800, 128, 24, 0, 0.2, -1.0],
+               [96, 1200, 128, 24, 0, 0.2, -1.0],
+               [128, 1200, 128, 24, 0, 0.2, -1.0],
+               [128, 1600, 128, 24, 0, 0.2, -1.0],
+               # fashion-784 FP32 hybrid rerank (rf=2/5): FP16 beam + FP32 rescore
+               # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+               # ncs=4: fashion-784 超高QPS帯 (50K-80K): rf=0でGlass ef=10超え
+               [2, 20, 4, 24, 0, 0.3, 0.3],
+               [2, 20, 4, 24, 0, 0.3, 0.3],
+               [4, 30, 4, 24, 0, 0.3, 0.3],
+               [4, 30, 4, 24, 0, 0.3, 0.3],
+               # ncs=8: fashion-784 0.97 band: rf=2→0.9727@42402 vs Glass ef=10 0.9451@44456
+               [4, 40, 8, 24, 0, 0.3, 0.3],
+               [4, 40, 8, 24, 0, 0.3, 0.3],
+               # ncs=16: fashion-784 0.97-0.99 band
+               [4, 60, 8, 24, 0, 0.3, 0.3],
+               [4, 80, 16, 24, 0, 0.2, -1.0],
+               [6, 80, 16, 24, 0, 0.2, -1.0],
+               # ncs=16 rf=2: fashion-784 0.994+ band: np=8 ef=80 → 0.9947@25227 QPS (Glass ef=40: 0.9961@22644)
+               [8, 80, 16, 24, 0, 0.2, -1.0],
+               # ncs=32: fashion-784 0.995-0.998 band
+               [8, 100, 32, 24, 0, 0.2, -1.0],
+               [12, 100, 32, 24, 0, 0.2, -1.0],
+               # ncs=48/64: fashion-784 0.999+ band: beats Glass ef=80 ceiling (0.9989@14193)
+               [12, 100, 48, 24, 0, 0.2, -1.0],
+               [16, 120, 48, 24, 0, 0.2, -1.0],
+               [16, 120, 64, 24, 0, 0.2, -1.0],
+               # ncs=64: gist-960 FP32 hybrid rerank (rf=2) 0.88-0.94 band
+               # rf=2 → k_beam=20, FP32 rescore → +0.01-0.014 recall at same QPS
+               [16, 60, 64, 24, 0, 0.3, 0.3],
+               [20, 60, 64, 24, 0, 0.3, 0.3],
+               [20, 60, 64, 24, 0, 0.3, 0.3],
+               [20, 60, 64, 24, 0, 0.3, 0.3],
+               [24, 80, 64, 24, 0, 0.2, -1.0],
+               [24, 80, 64, 24, 0, 0.2, -1.0],
+               # ncs=96: gist-960 FP32 hybrid 0.93-0.96 band
+               [28, 80, 96, 24, 0, 0.2, -1.0],
+               [28, 80, 96, 24, 0, 0.2, -1.0],
+               [36, 80, 96, 24, 0, 0.2, -1.0],
+               # ncs=128: gist-960 FP32 hybrid 0.96-0.98 band (Glass ceiling 0.9756@951 超え)
+               # rf=2: np=32 ef=100 → 0.9672@1788, np=36 ef=100 → 0.9721@1640, np=40 ef=120 → 0.9777@1531+
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [36, 100, 128, 24, 0, 0.2, -1.0],
+               [40, 120, 128, 24, 0, 0.2, -1.0],
+               [40, 120, 128, 24, 0, 0.2, -1.0],
+               # ncs=160: gist-960 FP32 hybrid 0.983-0.986 band
+               # rf=2: np=44 ef=130 → 0.9834@1377, np=48 ef=150 → 0.9857@1203
+               [44, 130, 160, 24, 0, 0.2, -1.0],
+               [48, 150, 160, 24, 0, 0.2, -1.0],
+               # ncs=192: gist-960 FP32 hybrid 0.988-0.990 band
+               # rf=2: np=52 ef=150 → 0.9882@1111, np=56 ef=150 → 0.9893@1081
+               [52, 150, 192, 24, 0, 0.2, -1.0],
+               [56, 150, 192, 24, 0, 0.2, -1.0],
+               # ncs=224/256: gist-960 FP32 hybrid 0.992-0.996 band
+               # rf=2: np=60 ef=180 ncs=224 → 0.9925@892, np=64 ef=200 ncs=256 → 0.9943@775
+               [60, 180, 224, 24, 0, 0.2, -1.0],
+               [64, 200, 256, 24, 0, 0.2, -1.0],
+               [72, 220, 256, 24, 0, 0.2, -1.0],
+               [80, 250, 256, 24, 0, 0.2, -1.0],
+               [96, 300, 256, 24, 0, 0.2, -1.0],
+               # glove-100 recall=0.79 帯 Glass同等
+               [4, 40, 64, 24, 0, 0.3, 0.3],
+               [4, 60, 64, 24, 0, 0.3, 0.3],
+               [4, 40, 96, 24, 0, 0.3, 0.3],
+               [4, 60, 96, 24, 0, 0.3, 0.3]]
+        e128-k256-a150-rebuild:
+          args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true}]
+          query-args:
+            # M=128 rebuild GIST-960: ceiling=0.9731, QPS≥951 best: np=44 ef=100 ncs=160 rc=0.9643@956
+            # params: [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[40, 100, 128, 24, 0, 0.2, -1.0],
+               [44, 100, 128, 24, 0, 0.2, -1.0],
+               [44, 100, 160, 24, 0, 0.2, -1.0],
+               [48, 100, 128, 24, 0, 0.2, -1.0],
+               [48, 100, 192, 24, 0, 0.2, -1.0],
+               [56, 100, 128, 24, 0, 0.2, -1.0],
+               [64, 100, 128, 24, 0, 0.2, -1.0],
+               [64, 100, 192, 24, 0, 0.2, -1.0],
+               [80, 120, 192, 24, 0, 0.2, -1.0],
+               [96, 120, 192, 24, 0, 0.2, -1.0],
+               [128, 400, 256, 24, 0, 0.2, -1.0],
+               [256, 1600, 256, 24, 0, 0.2, -1.0]]
+        e128-k256-a150-rebuild-rpq128:
+          args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128}]
+          query-args:
+            # M=128 rebuild+rpq128 GIST-960. Compact format: [np, ef, ncs=128, psm=24, crinn=0, rpqgm=auto, eps=auto, srg=-1, feef=-1]
+            #   np    — n_probe: cluster probes (sweep this for recall/QPS tradeoff)
+            #   ef    — beam size (higher = better recall, lower QPS)
+            #   ncs   — n_cluster_seeds per probe (default 128, optimal across all ef)
+            #   psm   — presort_seed_mult: RPQ-ranked fp16 seed cap (default 24, +17-31% QPS)
+            #   crinn — crinn_no_improve_limit: 0 = C++ auto (ef*2/3) (default 0)
+            #   rpqgm — beam_rpq_gate_margin: -1=off, auto=0.3(ef<80)/0.2(ef≥80)
+            #   eps   — term_eps_fp16: -1=off, auto=0.3(ef<80,lossless)/−1(ef≥80)
+            #   srg   — seed_rpq_gate: RPQ score threshold to early-filter seeds (-1=off)
+            #   feef  — fp16_early_exit_factor: fp16 beam early-exit factor (-1=off)
+            #
+            # Auto defaults produce near-optimal results — just sweep [np, ef]:
+            #   [24, 60] → psm=24 crinn=auto(40) rpqgm=0.3 eps=0.3 → recall~0.95 @ ~1650 QPS ★
+            #   [32, 80] → psm=24 crinn=auto(53) rpqgm=0.2 eps=-1  → recall~0.96 @ ~1350 QPS
+            #   [48,128] → psm=24 crinn=auto(85) rpqgm=0.2 eps=-1  → recall~0.98 @ ~860  QPS
+            #
+            # Measured Pareto points (11 reps trimmed mean, n_threads=8):
+            #   np=16 ef=60                              → 0.9227 @ 1663 QPS
+            #   np=20 ef=60                              → 0.9401 @ 1769 QPS (crinn=24 auto-tuned)
+            #   np=20 ef=60 ncs=96                       → 0.9392 @ 1906 QPS ★ fastest ~0.94
+            #   np=24 ef=60                              → 0.9521 @ 1621 QPS ★ best ef=60
+            #   np=32 ef=80                              → 0.9645 @ 1308 QPS ★ best ef=80 (rpqgm=0.2)
+            #   np=32 ef=80 rpqgm=off                    → 0.9759 @  858 QPS   high recall ef=80
+            #   np=48 ef=128 crinn=80 rpqgm=off          → 0.9902 @  820 QPS ★ best recall ≥0.99
+            #   np=48 ef=128 (auto rpqgm=0.2)            → 0.9806 @  861 QPS ★ best ef=128 QPS
+            #   np=48 ef=128 crinn=80 rpqgm=0.2 eps=0.05 → 0.9754 @  951 QPS   highest QPS ef=128
+            #   np=48 ef=200 ncs=64 psm=24 rpqgm=off     → 0.9913 @  754 QPS (8T); 931 QPS (16T) ★ best recall ≥0.99 high-thread
+            #   np=48 ef=200 ncs=64 psm=24 crinn=90           → 0.9901 @ 1039 QPS (16T) ★ QPS>1000 recall ≥0.99
+            #   np=48 ef=200 ncs=64 psm=24 crinn=92                → 0.9901 @ 1052 QPS (16T) ★ QPS>1000 recall ≥0.99
+            #   np=48 ef=200 ncs=64 psm=24 crinn=92 srg=0.2        → 0.9902 @ 1069 QPS (16T) ★ QPS>1000 recall ≥0.99
+            #   np=48 ef=200 ncs=64 psm=24 crinn=92 srg=0.2 feef=0.05 → 0.9902 @ 1073 QPS (16T) (+4 QPS vs srg alone ≈ noise)
+            #   np=48 ef=200 ncs=64 psm=24 crinn=100               → 0.9905 @ 1003 QPS (16T)
+            #   np=40 ef=200 ncs=64 psm=24 crinn=100               → 0.9869 @ 1218 QPS (16T) — recall ceiling 0.987 (np insufficient)
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70                → 0.9913 @  945 QPS (16T) (no srg)
+            #   np=56 ef=200 ncs=64 psm=24 crinn=65 srg=0.2        → 0.9905 @ 1018 QPS (16T) ✗ Pareto-dominated by crinn=70
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.15       → 0.9906 @ 1117 QPS (16T) ★ +172 QPS vs no-srg
+            #   np=56 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9909 @ 1146 QPS (16T) ★ best fp16 (see sq4 run-group for +15.5% QPS)
+            #   np=64 ef=200 ncs=64 psm=24 crinn=60 srg=0.2        → 0.9911 @ 1035 QPS (16T) ★ Pareto (recall↑, QPS↓ vs np=56)
+            #   np=64 ef=200 ncs=64 psm=24 crinn=70 srg=0.2        → 0.9925 @  954 QPS (16T) ★ high-recall Pareto
+            #   np=64 ef=200 ncs=64 psm=24 crinn=80 srg=0.2        → 0.9938 @  962 QPS (16T) ★ highest recall
+            #   np=56 ef=200 ncs=32 psm=24 crinn=70 srg=0.2 wsb=1  → 0.9903 @ 1130 QPS (16T) ★ +4% QPS vs ncs=64 wsb=0
+            #     (wsb=weighted_seed_budget: nearby clusters get 2x seeds, far clusters get fewer; provisional srg threshold)
+            #
+            # NOTE: np=40 recall ceiling = 0.987 regardless of ef (IVF quantization bound, not beam search)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[16,  60, 128, 24, 0, 0.3, 0.3],
+               [20,  60, 128, 24, 0, 0.3, 0.3],
+               [20,  60,  96, 24, 0, 0.3, 0.3],
+               [24,  60, 128, 24, 0, 0.3, 0.3],
+               [24,  60,  96, 24, 0, 0.3, 0.3],
+               [24,  60,  64, 24, 0, 0.3, 0.3],
+               # crinn=24 aggressive convergence (lower recall, higher QPS)
+               [20,  60, 128, 24, 24, 0.3, 0.3],
+               [24,  60, 128, 24, 24, 0.3, 0.3],
+               [24,  60,  96, 24, 24, 0.3, 0.3],
+               # ef=80
+               [32,  80, 128, 24, 0, 0.2, -1.0],
+               [32,  80, 128, 24, 32, 0.2, -1.0],
+               # ef=80 rpqgm off for high recall
+               [32,  80, 128, 24, 32, -1.0, -1.0],
+               # ef=128 rpqgm off for recall ≥ 0.99
+               [48, 128, 128,  0,  0, -1.0, -1.0],
+               [48, 128, 128, 24, 80, -1.0, -1.0],
+               # ef=128 auto (rpqgm=0.2) — recall~0.98 best QPS
+               [48, 128, 128, 24, 0, 0.2, -1.0],
+               # ef=128 + te_fp16=0.05: +10.9% QPS at recall=0.9754
+               [48, 128, 128, 24, 80, 0.2, 0.05],
+               # ef=200 ncs=64: best recall ≥0.99 at high thread counts (16T: 931 QPS)
+               [48, 200,  64, 24,  0, -1.0, -1.0],
+               # ef=200 ncs=64 crinn=90: QPS>1000 at recall ≥0.99 (16T: 1039 QPS avg)
+               [48, 200,  64, 24,  90, -1.0, -1.0],
+               # ef=200 ncs=64 crinn=92: QPS>1000 at recall ≥0.99 (16T: 1052 QPS avg)
+               [48, 200,  64, 24,  92, -1.0, -1.0],
+               # ef=200 ncs=64 crinn=92 srg=0.2: recall=0.9902 @ 1069 QPS avg (16T) ✗ dominated by np=56 crinn=70 srg=0.2 (1146 QPS)
+               [48, 200,  64, 24,  92, -1.0, -1.0, 0.2],
+               # ef=200 ncs=64 crinn=92 srg=0.2 feef=0.05: recall=0.9902 @ 1073 QPS (16T, +4 QPS ≈ noise) ✗ dominated
+               [48, 200,  64, 24,  92, -1.0, -1.0, 0.2, 0.05],
+               # ef=200 ncs=64 crinn=100: QPS>1000 at recall ≥0.99 (16T: 1003 QPS)
+               [48, 200,  64, 24, 100, -1.0, -1.0],
+               # ef=200 ncs=64 crinn=70 np=56: no-srg baseline (16T: 945 QPS avg, recall=0.9913)
+               [56, 200,  64, 24,  70, -1.0, -1.0],
+               # ef=200 ncs=64 crinn=70 np=56 srg=0.15: recall=0.9906 @ 1117 QPS (16T) ★ high-recall Pareto
+               [56, 200,  64, 24,  70, -1.0, -1.0, 0.15],
+               # ef=200 ncs=64 crinn=70 np=56 srg=0.2: recall=0.9909 @ 1146 QPS (16T) ★ NEW BEST
+               [56, 200,  64, 24,  70, -1.0, -1.0, 0.2],
+               # ef=200 ncs=64 crinn=60 np=64 srg=0.2: recall=0.9911 @ 1035 QPS (16T) ★ Pareto
+               [64, 200,  64, 24,  60, -1.0, -1.0, 0.2],
+               # ef=200 ncs=64 crinn=70 np=64 srg=0.2: recall=0.9925 @ 954 QPS (16T) ★ high-recall Pareto
+               [64, 200,  64, 24,  70, -1.0, -1.0, 0.2],
+               # ef=200 ncs=64 crinn=80 np=64 srg=0.2: recall=0.9938 @ 962 QPS (16T) ★ highest recall
+               [64, 200,  64, 24,  80, -1.0, -1.0, 0.2],
+               # ef=200 ncs=32 crinn=70 np=56 srg=0.2 wsb=1: recall=0.9903 @ 1130 QPS (16T) ★ highest QPS at recall ≥0.99
+               [56, 200,  32, 24,  70, -1.0, -1.0, 0.2, -1.0, 1]]
+        e128-k256-a150-rebuild-rpq128-sq4:
+          args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true}]
+          query-args:
+            # sq4_beam=true: selects SQ4 SDK (AF_SQ4=ON) — includes SQ4 codes for seeding
+            # beam_mode=auto → fp16 beam (arcflare.py does not pass beam_mode; fp16 used for traversal)
+            # SQ4 beam (beam_mode="sq4"): np=48 ef=180 → recall=0.9891 @QPS=1623 (recall<0.99; needs ef≥220)
+            # Pareto (16T, Python SDK, fp16 beam, tail-batch + sq8Dist8x/16x):
+            #   np=48 ef=180 crinn=60 ncs=72: recall=0.9902 @QPS=1449 ★ best QPS recall≥0.99 (+26% vs fp16-only 1146)
+            #   np=48 ef=180 crinn=70 ncs=72: recall=0.9906 @QPS=1401 ★ safer recall margin
+            #   np=56 ef=180 crinn=60 ncs=72: recall=0.9914 @QPS=1291 ★
+            #   np=56 ef=200 crinn=60 ncs=72: recall=0.9926 @QPS=1229 ★
+            #   np=56 ef=200 crinn=70 ncs=72: recall=0.9928 @QPS=1192 ★
+            #   np=64 ef=200 crinn=70 ncs=72: recall=0.9947 @QPS=1072 ★ high-recall
+            #   np=72 ef=200 crinn=70 ncs=72: recall=0.9950 @QPS=985  ★ highest recall
+            # NOTE: ef=180 dominates ef=200 at np=48 (higher QPS, recall≥0.99); ef=170 barely ≥0.99 (not safe)
+            # NOTE: srg=-1.0 (off) is optimal; wsb=0/1 makes no difference
+            # NOTE: np=40 cannot reach recall>=0.99 even with ncs=96 ef=320
+            - [[32, 200, 72, 24, 70, -1.0, -1.0],
+               [40, 200, 72, 24, 70, -1.0, -1.0],
+               [48, 180, 72, 24, 60, -1.0, -1.0],
+               [48, 180, 72, 24, 70, -1.0, -1.0],
+               [56, 180, 72, 24, 60, -1.0, -1.0],
+               [56, 200, 72, 24, 60, -1.0, -1.0],
+               [56, 200, 72, 24, 70, -1.0, -1.0],
+               [64, 200, 72, 24, 70, -1.0, -1.0],
+               [72, 200, 72, 24, 70, -1.0, -1.0]]
+        e128-k256-a150-rebuild-rpq128-sq4-beam:
+          args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4'}]
+          query-args:
+            # True SQ4 beam (beam_mode="sq4") GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Pareto (16T, beam_mode="sq4", ncs=72):
+            #   np=56 ef=106 crinn=60 srg=0.10 psm=24 [32x]: recall=0.9904 @QPS=1684 ★ BEST QPS recall≥0.99 (+47% vs fp16-only 1146, +16% vs fp16-beam 1449)
+            #   np=56 ef=106 crinn=60 srg=0.10 psm=20 [32x]: recall=0.9900 @QPS=1702 ★ psm=20 +1.1% QPS (marginal)
+            #   np=56 ef=120 crinn=60 srg=0.10: recall=0.9900 @QPS=1632 (pre-prefetch baseline, now dominated)
+            #   np=56 ef=140 crinn=60 srg=0.10: recall=0.9900 @QPS=1614 ★ safer ef margin
+            #   np=56 ef=160 crinn=60 srg=0.10: recall=0.9902 @QPS=1586 ★ safer recall margin
+            #   np=56 ef=160 crinn=70 srg=0.20: recall=0.9914 @QPS=1519 ★ high-recall
+            #   np=56 ef=160 crinn=100:          recall=0.9926 @QPS=1450 ★ very high recall
+            #   np=64 ef=160 crinn=70:           recall=0.9930 @QPS=1370 ★ high-recall
+            # NOTE: np=48 ef=180~350 all recall<0.99 for SQ4 beam — minimum np=56
+            # NOTE: srg=0.10 optimal for crinn=60; srg=0.20 optimal for crinn=70
+            # NOTE: ef=106 minimum reliable ef for recall≥0.99; ef=102-104 drops below 0.9900
+            # NOTE: prefetchNeighborsFull + 2nd-level lookahead gives +3.1% QPS vs prefetchNeighbors
+            # NOTE: beam_rpq_filter_k>0 enables RPQ top-K pre-filter for SQ4 beam (disabled by default)
+            - [[56, 106, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 120, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 140, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 24, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 24, 70, -1.0, -1.0, 0.20],
+               [56, 180, 72, 24, 70, -1.0, -1.0, 0.20],
+               [56, 200, 72, 24, 70, -1.0, -1.0, 0.20],
+               [56, 160, 72, 24, 100, -1.0, -1.0],
+               [64, 160, 72, 24, 70, -1.0, -1.0],
+               [64, 180, 72, 24, 70, -1.0, -1.0],
+               [64, 200, 72, 24, 70, -1.0, -1.0],
+               [72, 160, 72, 24, 70, -1.0, -1.0],
+               [72, 200, 72, 24, 70, -1.0, -1.0]]
+        e96-k256-a150-rebuild-rpq128-sq4-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4'}]
+          query-args:
+            # True SQ4 beam (beam_mode="sq4") M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef]
+            # Pareto (16T, beam_mode="sq4", ncs=72, psm=20):
+            #   np=56 ef=106 crinn=60 srg=0.07 [32x]: recall=0.9905 @QPS=1788 ★ BEST (vis-opt+srg; M=128: 0.9904@1684, +6.2%)
+            #   np=56 ef=106 crinn=60 srg=0.10 [32x]: recall=0.9909 @QPS~1780
+            #   np=56 ef=106 crinn=50 srg=0.10: recall=0.9900 @QPS=1738 (high variance, median=1524)
+            #   np=52 ef=106 crinn=60 srg=-1.0 [32x]: recall=0.9902 @QPS=1836 ★ FASTEST (no SRG overhead)
+            #   np=52 ef=102 crinn=60 srg=-1.0: recall=0.9900 @QPS~1793 ★ (ef=102 OK for M=96)
+            # feef=0.20 sweep (2026-06-26, sq4Dist32x, 80T benchmark):
+            #   np=52 ef=130 crinn=45 ncs=128 psm=20 feef=0.20: recall=0.9900 @QPS=2136 ★★ BEST (+16.3% vs 1836)
+            #   np=52 ef=130 crinn=45 ncs=128 psm=24 feef=0.20: recall=0.9902 @QPS=2027 (+10.4% vs 1836)
+            #   np=52 ef=120 crinn=40 ncs=128 feef=0.20: recall=0.9902 @QPS=1925 (+4.8%)
+            #   np=52 ef=106 crinn=60 ncs=72 psm=20 feef=0.20: recall=0.9900 @QPS=2059 (NOISE vs no-feef)
+            #   ncs=72/96 + ef=130: recall drops to 0.989x → ncs=128 required
+            #   psm sweep (ncs=128 feef=0.20): psm=20 PASS@0.9900 +5.4%, psm=16 FAIL@0.9891, psm=12 FAIL@0.9868
+            # term_eps sweep (2026-06-26, psm=20 feef=0.20 base):
+            #   term_eps=0.25: recall=0.9900 @QPS=2121 ±91 (+4.7% vs base, t=1.29, borderline)
+            #   term_eps=0.30: recall=0.9900 @QPS=2070 ±145 (+2.1%, t=0.50, noise)
+            #   term_eps=0.35+: consistently slower (early-exit too aggressive for SQ4 quant error)
+            #   Verdict: term_eps disabled (=-1.0) is most stable; 0.25 worth trying on low-variance systems
+            # NOTE: feef=0.20 enables ef/crinn reduction: ef=160→130 (-19%), crinn=60→45 (-25%) at same recall
+            # NOTE: psm=20 reduces seed pool from ef×24=3120 to ef×20=2600 → fewer heap ops → +5.4% QPS
+            # NOTE: M=96 allows crinn=50 at recall≥0.99 (M=128 requires crinn≥60 for recall≥0.99)
+            # NOTE: M=96 minimum ef is 102 (M=128 minimum ef is 106 for reliable recall≥0.99)
+            # NOTE: +3-5% QPS over M=128 at same recall — fewer edges per node reduces SQ4 DRAM bandwidth
+            # NOTE: srg=0.07 is optimal for np=56 (srg sweep: 0.05→1743, 0.07→1740, 0.10→1721, off→1686)
+            # NOTE: sq4Dist32x (32x flush): M=96 6→3 flushes, M=128 8→4 flushes
+            - [[52, 130, 128, 20, 45, -1.0, -1.0, -1.0, 0.20],
+               [52, 130, 128, 24, 45, -1.0, -1.0, -1.0, 0.20],
+               [52, 120, 128, 24, 40, -1.0, -1.0, -1.0, 0.20],
+               [52, 110, 128, 24, 42, -1.0, -1.0, -1.0, 0.20],
+               [48, 130, 128, 24, 45, -1.0, -1.0, -1.0, 0.20],
+               [56, 106, 72, 20, 60, -1.0, -1.0, 0.07],
+               [52, 106, 72, 20, 60, -1.0, -1.0, -1.0],
+               [52, 102, 72, 20, 60, -1.0, -1.0, -1.0],
+               [56, 106, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 106, 72, 20, 50, -1.0, -1.0, 0.10],
+               [56, 102, 72, 20, 60, -1.0, -1.0, 0.07],
+               [56, 104, 72, 20, 60, -1.0, -1.0, 0.07],
+               [56, 120, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 140, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 20, 60, -1.0, -1.0, 0.10],
+               [56, 160, 72, 20, 70, -1.0, -1.0, 0.20],
+               [56, 180, 72, 20, 70, -1.0, -1.0, 0.20],
+               [64, 160, 72, 20, 70, -1.0, -1.0],
+               [72, 160, 72, 20, 70, -1.0, -1.0]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true}]
+          query-args:
+            # Asymmetric SQ4 beam (beam_mode="sq4", sq4_asym=True) M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Uses per-node min/range encoding (unsigned nibbles [0,15]) vs symmetric [-7,7].
+            # Quantization error: (max-min)/15 vs 2*max/7 — ~4x improvement in worst-case error.
+            # Benchmark results (2026-06-26, routing-pq-improve asym SDK, GIST-960 ASYM index):
+            #   np=52 ef=130 crinn=45 ncs=128 psm=24 nofeef: recall=0.9914 @QPS=2031 ±81  (+7.1% vs sym feef@2031)
+            # NOTE: feef is counter-productive with asym SQ4 — scale mismatch causes wrong threshold (-12% QPS)
+            # NOTE: sq4_asym requires gen_sq4sq2 rebuild with routing-pq-improve SDK to add sq4_min_ to sq4.bin
+            # NOTE: AoS sq4_meta (max/norm/min/inv15 interleaved 16B) reduces sq4Dist32x cache miss (+5.7% QPS)
+            # NOTE: norm=||x_dec||² (quantized) not ||x||² (true) — self-consistent distance kernel
+            # NOTE: inv15=range/15 precomputed in SQ4Meta eliminates hot-path division (+0.4% QPS)
+            # NOTE: srg=0.10 critical: +8-10% QPS; psm=22 optimal (+0.5% recall, +1% QPS vs psm=20)
+            # Post-AoS+inv15+prefetch results (2026-06-26, 7-run median):
+            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2270 (2259 med) ★★ BEST recall≥0.99
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2271             ★★ FASTEST (ef=120 minimum viable)
+            #   np=52 ef=130 crinn=42 ncs=128 psm=22 srg=0.10: recall=0.9910 @QPS=2184 (2049 med)  ★ BEST recall
+            #   np=52 ef=130 crinn=36 ncs=128 psm=22 srg=0.12: recall=0.9900 @QPS=2254 (2181 med)  high-QPS/low-crinn
+            #   np=52 ef=130 crinn=45 ncs=128 psm=22 srg=0.10: recall=0.9910 @QPS=2241 (2099 med)  ref AoS-era
+            #   np=56 ef=160 crinn=60 ncs=128 psm=20 srg=0.10: recall=0.9934 @QPS=1993              high recall target
+            # NOTE: ef=120 is minimum for recall≥0.99 with asym SQ4 (ef=115 drops to 0.989x)
+            # NOTE: crinn=37 with ef=120 saves ~8% search work vs crinn=40 with ef=130
+            # NOTE: M=80 asym SQ4 (arcflare-D960-M80-K256-a1.50-ep32-cs128-gorder-rebuild-l2-rpq128-sq4-asym):
+            #       recall ceiling=0.63 @ np=96 ef=240; fp16 beam recall=0.00 (bapq_perm/saq_rots SDK mismatch).
+            #       M=80 graph quality insufficient for GIST-960 recall≥0.99. M=96 is minimum viable.
+            # AVX2 maddubs optimization (2026-06-26, dot_q_sq4_asym_8x native AVX2 via vpmaddubsw):
+            #   dot_q_sq4_asym_8x: direct maddubs(u8,s8) — no sub_epi8 shift, no (void)q_sum correction
+            #   dot_q_sq4_asym_32x: #else branch uses 4x dot_q_sq4_asym_8x (was: dot_q_sq4_32x + q_sum loop)
+            #   Post-AVX2 maddubs results (2026-06-26, 7-run top-1, local measurement):
+            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2273  ★★ BEST recall≥0.99
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2323  ★★ FASTEST
+            # Official ann-benchmarks batch mode (2026-06-27, run_algorithm.py --runs 7 --batch, 80T, 1000 queries):
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2119  ★★ FASTEST (official)
+            #   np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2073  ★★ BEST (official)
+            # NOTE: official vs local gap ~9% (CPU thermal throttling + OS scheduler over longer test run)
+            # Prefetch optimization (2026-06-27, seeding loop cache-pollution fix + block prefetch):
+            #   REMOVED: routing_pq_norm_sq_ prefetch for use_local_batch path (was issuing ~203K unneeded
+            #     random prefetches/query, polluting cluster_local_blocks_ L2 cache lines)
+            #   ADDED: inner-loop block prefetch: PF_DIST=3 blocks ahead, 2 CL/block (head+512B)
+            #   ADDED: outer-loop probe prefetch: next probe's first 2 blocks, hides inter-probe DRAM latency
+            #   Post-prefetch results (2026-06-27, 7-run max, local 80T):
+            #   np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2400  ★★ FASTEST (+6.8%)
+            # NOTE: SRG/PSM: srg=0.10 +8-10% QPS; psm=16 optimal (+4% QPS vs psm=22, recall≥0.990 minimum)
+            # NOTE: cap_cluster_members & adaptive_probe_ratio both collapse recall for GIST-960 (K=256,D=960)
+            # NOTE: beam_rpq_filter_k collapses recall at values <96; no gain at 96. Keep at 0.
+            # NOTE: K=4096 recall ceiling=0.904 — cannot reach 0.99. K=256 is the only viable index.
+            # NOTE: np=43 (vs np=52) reduces seeding 17%, psm=16 reduces presort_cap 27% → +10% QPS total
+            # np-ef tradeoff results (2026-06-27, 14-run max, local 80T):
+            # seeding=82% of total time (L3/DRAM bandwidth bound); beam=18%
+            # np=20-30 ef=400: recall ceiling 0.952-0.977 — ef cannot compensate low np (seeding quality is ceiling)
+            #   np=43 ef=152 ncs=128 psm=16 crinn=63: recall=0.9900 @QPS=2418 ★★ NEW BEST (14-run, rcmin=rcmax=0.9900)
+            #   np=43 ef=156 ncs=128 psm=16 crinn=63: recall=0.9900 @QPS=2410 ★★
+            #   np=43 ef=170 ncs=128 psm=16 crinn=63: recall=0.9900 @QPS=2421 prev best
+            #   np=43 ef=170 ncs=128 psm=22 crinn=63: recall=0.9906 @QPS=2355 ★ highest recall@np=43
+            #   np=43 ef=180 ncs=128 psm=16 crinn=67: recall=0.9903 @QPS=2319 ★ safe margin
+            #   np=45 ef=160 ncs=128 psm=22 crinn=60: recall=0.9904 @QPS=2207 ref (was best before np=43 sweep)
+            # NOTE: AVX-512 hardware (Intel Xeon): seeding 2× faster (gpq4_batch_ip_avx512_2block auto-selected)
+            #       → Amdahl: (82%/2 + 18%) = 59% of current time → QPS ≈ 2418 × 1.69 ≈ 4086 estimated
+            # SIMD optimization (2026-06-27, feat/simd-opt → main):
+            #   dot_q_sq4_asym_8x: added __AVX512VNNI__ path (dpbusd+_af_sq4_nib512); AVX2 path unchanged
+            #   gpq4_batch_ip_avx512_4block: 4 blocks × 2 planes/iter, 8 YMM acc pairs sharing 1 ZMM LUT
+            #   Index.cpp seeding loop: b+=4 outer loop precedes b+=2 and b+=1 tails
+            #   Local Zen2 sweep (AVX2 only, 7-run, ArcFlare-M96-asym-batch-batch):
+            #     np=43 ef=156 crinn=63 ncs=128 psm=16 srg=0.10: recall=0.9900 @QPS=2457 ★★ NEW BEST local
+            #     np=43 ef=170 crinn=63 ncs=128 psm=16 srg=0.10: recall=0.9900 @QPS=2417
+            #     np=52 ef=120 crinn=37 ncs=128 psm=22 srg=0.10: recall=0.9900 @QPS=2361
+            #     np=43 ef=180 crinn=67 ncs=128 psm=16 srg=0.10: recall=0.9903 @QPS=2349
+            #     np=52 ef=130 crinn=40 ncs=128 psm=22 srg=0.10: recall=0.9909 @QPS=2308
+            #     np=45 ef=160 crinn=60 ncs=128 psm=22 srg=0.10: recall=0.9904 @QPS=2308
+            #   → AVX-512 4-block Amdahl: seeding ≈ 2.5-3× faster → total ~51-54% → QPS ≈ 2457 × 1.85-1.96 ≈ 4545-4815
+            # sq4_pfah sweep (2026-07-01, 7-run, Zen2 80T, np=43 ef=152 crinn=63 psm=16 srg=0.10):
+            #   pfah=16: QPS_mean=2278  pfah=24: QPS_mean=2401  pfah=32: QPS_mean=2305
+            #   pfah=40: QPS_mean=2407  pfah=48: QPS_mean=2315  pfah=64: QPS_mean=2366
+            #   QPS_max identical across all (2521-2541) — DRAM-bound, no winner. Default (32) is fine.
+            # FINGER gate sweep (2026-07-01, 7-run, Zen2 80T, np=43 ef=152 crinn=63 psm=16 srg=0.10):
+            #   fgf  recall  QPS_mean  QPS_max  vs_off
+            #   off  0.9900     2013     2493     ref   (cold-cache mean; QPS_max is warm)
+            #   0.1  0.9499     2412     2766    +19.8%  ★ best mean QPS at mid-recall
+            #   0.2  0.9539     2390     2658    +18.7%
+            #   0.3  0.9569     2372     2652    +17.9%
+            #   0.5  0.9606     2435     2614    +21.0%  ★ best overall mean QPS
+            #   0.7  0.9629     2405     2566    +19.5%
+            #   0.9  0.9645     2324     2552    +15.5%
+            #   1.2  0.9664     2396     2574    +19.0%
+            #   1.5  0.9680     2314     2554    +14.9%
+            #   2.0  0.9714     2293     2542    +13.9%
+            # CONCLUSION: FINGER gate on SQ4-asym beam CANNOT reach recall≥0.99 regardless of fgf.
+            #   SQ4 quantization noise makes d_qx (≈SQ4 dist) a loose lower-bound → gate skips too
+            #   aggressively. Max achievable recall with any fgf: ~0.9714 (fgf=2.0). NOT viable for
+            #   recall≥0.99 operating points. fp16 beam FINGER gate tested separately (see GloVe run-groups).
+            # MID-RECALL PARETO (FINGER gate): adds 0.95-0.97 operating points for GIST-960 Pareto curve.
+            #   Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf]
+            - [[43, 152, 128, 16, 63, -1.0, -1.0, 0.10],
+               [43, 156, 128, 16, 63, -1.0, -1.0, 0.10],
+               [43, 170, 128, 16, 63, -1.0, -1.0, 0.10],
+               [43, 170, 128, 22, 63, -1.0, -1.0, 0.10],
+               [43, 180, 128, 16, 67, -1.0, -1.0, 0.10],
+               [45, 160, 128, 22, 60, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 40, -1.0, -1.0, 0.10],
+               [52, 120, 128, 22, 37, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 42, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 38, -1.0, -1.0, 0.10],
+               [52, 130, 128, 22, 36, -1.0, -1.0, 0.12],
+               [54, 115, 128, 22, 36, -1.0, -1.0, 0.10],
+               [52, 130, 128, 20, 45, -1.0, -1.0, 0.10],
+               [56, 130, 128, 20, 45, -1.0, -1.0, 0.10],
+               [56, 160, 128, 20, 60, -1.0, -1.0, 0.10],
+               [48, 130, 128, 22, 40, -1.0, -1.0, 0.10],
+               [52, 110, 128, 22, 36, -1.0, -1.0, 0.10]]
+        e96-k4096-a150-rebuild-rpq128-sq4-asym-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 4096, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true}]
+          query-args:
+            # K=4096 M=96 asymmetric SQ4 beam. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # K=4096 avg cluster size ≈ 1M/4096 ≈ 244 vectors (vs K=256 ≈ 3906)
+            # Build: /tmp/build_k4096_m96.py (PID=3227692, started 2026-06-27)
+            # Index: arcflare-D960-M96-K4096-a1.50-ep32-cs128-gorder-rebuild-l2-rpq128-sq4-asym
+            # Bench: /tmp/bench_k4096.py (run after build completes)
+            # Expected: recall≥0.99 @ np≈400-800, QPS target≥3000
+            # NOTE: K=256 np=52 covers 52/256=20.3% clusters. K=4096 equivalent coverage = 4096*0.203 = 832 probes.
+            #       However recall/np curve is steeper for larger K (finer clusters) — actual np may be lower.
+            # Results TBD (index build in progress)
+            - [[400, 80, 128, 22, 25, -1.0, -1.0, 0.10]]
+        e96-k256-a150-rebuild-rpq128-sq8-beam:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq8'}]
+          query-args:
+            # SQ8 beam (beam_mode="sq8") M=96 GIST-960. Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg]
+            # Pareto (16T, sq8Dist32x 2×sq8Dist16x, ncs=72, psm=20):
+            #   np=56 ef=140 crinn=60 srg=-1.0 [32x]: recall=0.9903 @QPS=1425 ★ BEST QPS recall≥0.99 (+44% vs fp16 ~986)
+            #   np=56 ef=150 crinn=60 srg=-1.0 [32x]: recall=0.9906 @QPS=1411 ★
+            #   np=60 ef=125 crinn=60 srg=-1.0 [32x]: recall=0.9901 @QPS=1367 ★
+            # NOTE: SQ8 requires ef≥140 @ np=56 for recall≥0.99 (SQ4 requires ef=106 — more quantization error)
+            # NOTE: SQ8 = 2x DRAM bandwidth vs SQ4 → lower QPS but per-node precision closer to fp16
+            # NOTE: SQ8 QPS=1425 vs SQ4 QPS=1864 (M=96, recall≥0.99): SQ4 +31% faster than SQ8
+            # NOTE: sq8Dist32x = 2×sq8Dist16x (acc+ssy zmm pressure prevents native 32-way kernel)
+            # NOTE: SQ2 beam recall≤0.22 on M=96 GIST-960 (updated from ≤0.74 on M=128 symmetric).
+            #       Root cause: D=1024 SNR<1 (quant noise mean=2.28 >> NN dist ~1.4). Fundamentally not viable.
+            - [[56, 140, 72, 20, 60, -1.0, -1.0, -1.0],
+               [56, 150, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 125, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 130, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 140, 72, 20, 60, -1.0, -1.0, -1.0],
+               [60, 160, 72, 20, 70, -1.0, -1.0],
+               [64, 140, 72, 20, 60, -1.0, -1.0],
+               [64, 160, 72, 20, 70, -1.0, -1.0]]
+        wave5-sq4u-hnswseed:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'build_sq4u': true, 'graft_hnsw_upper': true, 'hnsw_m': 32, 'hnsw_efc': 500, 'hnsw_seed': true, 'sq4u': true, 'pf2hop': true}]
+          query-args:
+            # Explicit 19-elem compact rows: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder, hnsw_seed, sq4u, pf2hop, scan_tier]
+            # Wave 2/3/5 verified Zen 2 AVX2 non-dominated SQ4U + HNSW upper-layer seed + 2-hop prefetch points:
+            #   sift-128 / fashion-784 / glove-25 (ef=24..96) / nytimes-256 (ef=64..1300) / gist-960 (ef=96..560)
+            - [[1,   24, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   32, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   48, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   64, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,   96, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  140, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  200, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  320, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1,  560, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0],
+               [1, 1300, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 1, 1, 0]]
+        wave5-fp16-hnswseed:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'graft_hnsw_upper': true, 'hnsw_m': 32, 'hnsw_efc': 500, 'beam_mode': 'fp16', 'hnsw_seed': true}]
+          query-args:
+            # Explicit 19-elem compact rows: lastfm-64-dot Wave 3/5 champion (ef=60: 0.9817, ef=100: 0.9909, 100% #1 vs SCaNN)
+            - [[1,  32, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1,  48, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1,  60, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1, 100, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0],
+               [1, 160, 64, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, -1, 1, 0, 0, 0]]
+        wave5-scantier-k2048-raw50:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 2048, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'routing_pq_m': 50, 'avq_threshold': 0.2, 'rpq_raw_space': true, 'sq4_beam': true, 'scan_tier': true}]
+          query-args:
+            # Explicit 19-elem compact rows: glove-100-angular ScanTier K=2048 M=50 raw=1 AVQ=0.2 (np=60/125/420, scan_reorder=130/220/600)
+            - [[ 60, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 130, 0, 0, 0, 1],
+               [125, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 220, 0, 0, 0, 1],
+               [420, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 600, 0, 0, 0, 1]]
+        wave10-scantier-k2048-res50:
+          args: [{'alpha': 1.2, 'max_edges': 64, 'k_clusters': 2048, 'n_entry_points': 8, 'n_cluster_seeds': 32, 'reorder': 'gorder', 'routing_pq_m': 50, 'avq_threshold': 0.2, 'rpq_raw_space': true, 'rpq_residual': true, 'sq4_beam': true, 'scan_tier': true}]
+          query-args:
+            # Explicit 19-elem compact rows: Wave 10 glove-100-angular Residual-AVQ ScanTier (0.90/0.95/0.99 = np=50/108/405, sr=100/190/310)
+            - [[ 50, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 100, 0, 0, 0, 1],
+               [108, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 190, 0, 0, 0, 1],
+               [405, 10, 0, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.0, 310, 0, 0, 0, 1]]
+    ArcFlare-A16:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a160-ep32:
+          args: [{'alpha': 1.6, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # alpha=1.6: denser graph → higher recall at same QPS
+            # Targeting recall>0.99 @ QPS>8000 (current best: 0.9877 @ 9128 with alpha=1.5)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[20, 200, 128, 24, 0, 0.2, -1.0],
+               [20, 300, 128, 24, 0, 0.2, -1.0],
+               [24, 160, 128, 24, 0, 0.2, -1.0],
+               [24, 200, 128, 24, 0, 0.2, -1.0],
+               [24, 240, 128, 24, 0, 0.2, -1.0],
+               [28, 140, 128, 24, 0, 0.2, -1.0],
+               [28, 160, 128, 24, 0, 0.2, -1.0],
+               [28, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 160, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 260, 128, 24, 0, 0.2, -1.0],
+               [36, 180, 128, 24, 0, 0.2, -1.0],
+               [36, 220, 128, 24, 0, 0.2, -1.0]]
+    ArcFlare-Pareto:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a150-v2-pareto:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # Fill Pareto frontier gaps — target recall>0.99 @ QPS>8000
+            # np=20: explore high-QPS end (estimated QPS=13K-20K)
+            # np=28,32 ef=160-200: bridge the gap between current Pareto points
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[20, 80, 128, 24, 0, 0.2, -1.0],
+               [20, 100, 128, 24, 0, 0.2, -1.0],
+               [20, 120, 128, 24, 0, 0.2, -1.0],
+               [20, 140, 128, 24, 0, 0.2, -1.0],
+               [20, 160, 128, 24, 0, 0.2, -1.0],
+               [28, 160, 128, 24, 0, 0.2, -1.0],
+               [28, 180, 128, 24, 0, 0.2, -1.0],
+               [28, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 180, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [36, 140, 128, 24, 0, 0.2, -1.0],
+               [36, 160, 128, 24, 0, 0.2, -1.0]]
+        e64-k256-a150-ef230:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # recall>0.99 @ QPS>8000 confirmed: np=32, ef=230-242
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[32, 228, 128, 24, 0, 0.2, -1.0],
+               [32, 230, 128, 24, 0, 0.2, -1.0],
+               [32, 232, 128, 24, 0, 0.2, -1.0],
+               [32, 234, 128, 24, 0, 0.2, -1.0],
+               [32, 236, 128, 24, 0, 0.2, -1.0],
+               [32, 238, 128, 24, 0, 0.2, -1.0],
+               [32, 240, 128, 24, 0, 0.2, -1.0],
+               [32, 242, 128, 24, 0, 0.2, -1.0]]
+    ArcFlare-A140:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        e64-k256-a150-rpq128:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'routing_pq_m': 128}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GIST-960 best: np=64 ef=120 ncs=192 → rc=0.9705 @ QPS=788 (0.83x Glass) [cluster_local_batch]
+            # All configs at rc>=0.970 with highest QPS sorted descending
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[48, 100, 128, 24, 0, 0.2, -1.0],
+               [52, 100, 160, 24, 0, 0.2, -1.0],
+               [56, 100, 160, 24, 0, 0.2, -1.0],
+               [56, 100, 192, 24, 0, 0.2, -1.0],
+               [60, 100, 192, 24, 0, 0.2, -1.0],
+               [64, 120, 192, 24, 0, 0.2, -1.0],
+               [64, 120, 256, 24, 0, 0.2, -1.0],
+               [72, 150, 256, 24, 0, 0.2, -1.0],
+               [80, 160, 256, 24, 0, 0.2, -1.0],
+               [96, 200, 256, 24, 0, 0.2, -1.0]]
     sptag:
       docker-tag: ann-benchmarks-sptag
       module: ann_benchmarks.algorithms.sptag
@@ -360,6 +1138,32 @@ float:
                           [3.0, 0.90], [3.0, 0.95], [3.0, 0.98], [3.0, 1.00], [3.0, 1.02],
                           [  5, 1.00], [ 10, 1.00], [ 20, 1.00],
                           [  2, 1.04], [  3, 1.04], [  5, 1.04], [  8, 1.04]]]
+    Glass:
+      docker-tag: ann-benchmarks-glass
+      module: ann_benchmarks.algorithms.glass
+      constructor: Glass
+      base-args: ["@metric"]
+      run-groups:
+        M-16:
+          args: [{'M': 16, 'ef_construction': 200}]
+          query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
+        M-32:
+          args: [{'M': 32, 'ef_construction': 200}]
+          query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800, 1000, 1200, 1500, 2000]]
+        M-32-sq8u-fp16refine:  # ADDITIVE (2026-07-24): fixes a regression where refine_quant
+          # was never wired through to glass.Searcher() -- for euclidean datasets the
+          # default quantizer='SQ4U' with no refine hard-caps recall at ~0.84 regardless of
+          # ef (confirmed on sift-128-euclidean, sift128-full-recall-generalize task). This
+          # explicit SQ8U+FP16-refine config restores the original 2026-07-03
+          # competitor-matrix.md protocol ("Glass = pyglass d2296ec source, SQ8U+FP16 refine").
+          args: [{'M': 32, 'ef_construction': 200, 'quantizer': 'SQ8U', 'refine_quant': 'FP16'}]
+          query-args: [[40, 80, 120, 200, 400, 600, 800]]
+          # 2026-07-24 T1 standalone re-measurement (glass-sift-128-euclidean-M32.graph):
+          #   ef=40 0.9218@16878  ef=80 0.9720@10025  ef=120 0.9862@7391  ef=200 0.9945@5310
+          #   ef=400 0.9983@2803  ef=600 0.9989@1988  ef=800 0.9991@1519
+        M-48:
+          args: [{'M': 48, 'ef_construction': 200}]
+          query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
     mrpt:
       docker-tag: ann-benchmarks-mrpt
       module: ann_benchmarks.algorithms.mrpt
@@ -382,6 +1186,725 @@ float:
           args: []
 
   euclidean:
+    ArcFlare-A140-L2-K1024:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-l2-k1024-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # K=1024 → cluster_size=~1000 → 4x faster seeding than K=256
+            # Validated (80T warm): np=1 ef=20 → 0.7240@103575, np=2 ef=20 → 0.8003@72208
+            #                        np=4 ef=20 → 0.8642@53196, np=4 ef=50 → 0.9137@38402
+            # ncs=8/16: ultra-high-QPS (200K-500K) to beat Glass SQ4U at low recall (0.60-0.75)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[1, 5, 8, 24, 0, 0.3, 0.3],
+               [1, 10, 8, 24, 0, 0.3, 0.3],
+               [1, 5, 16, 24, 0, 0.3, 0.3],
+               [1, 10, 16, 24, 0, 0.3, 0.3],
+               [1, 20, 16, 24, 0, 0.3, 0.3],
+               [2, 10, 16, 24, 0, 0.3, 0.3],
+               [2, 20, 16, 24, 0, 0.3, 0.3],
+               # ncs=32: recall 0.72-0.80 @ 50K-100K QPS
+               [1, 10, 32, 24, 0, 0.3, 0.3],
+               [1, 20, 32, 24, 0, 0.3, 0.3],
+               [2, 20, 32, 24, 0, 0.3, 0.3],
+               [2, 50, 32, 24, 0, 0.3, 0.3],
+               [4, 20, 32, 24, 0, 0.3, 0.3],
+               # ncs=64: recall 0.85-0.91 @ 25K-50K QPS
+               [4, 20, 64, 24, 0, 0.3, 0.3],
+               [4, 50, 64, 24, 0, 0.3, 0.3],
+               [8, 20, 64, 24, 0, 0.3, 0.3],
+               [8, 50, 64, 24, 0, 0.3, 0.3],
+               # default ncs (=128): baseline sweep
+               [8, 100, 128, 24, 0, 0.2, -1.0],
+               [16, 50, 128, 24, 0, 0.3, 0.3],
+               [16, 100, 128, 24, 0, 0.2, -1.0],
+               [16, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 400, 128, 24, 0, 0.2, -1.0],
+               [64, 200, 128, 24, 0, 0.2, -1.0],
+               [64, 400, 128, 24, 0, 0.2, -1.0],
+               [128, 400, 128, 24, 0, 0.2, -1.0],
+               [128, 800, 128, 24, 0, 0.2, -1.0],
+               [256, 800, 128, 24, 0, 0.2, -1.0]]
+        a140-l2-k1024-soar:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'soar': true}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GIST-960 K=1024 SOAR Pareto (AF_SOAR=ON, no rebuild):
+            # Goal achieved: np=48 ncs=204 ef=80 → recall=0.9007 @ QPS=1011
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[32, 60, 64, 24, 0, 0.3, 0.3],
+               [32, 60, 128, 24, 0, 0.3, 0.3],
+               [48, 60, 128, 24, 0, 0.3, 0.3],
+               [56, 60, 128, 24, 0, 0.3, 0.3],
+               [56, 60, 160, 24, 0, 0.3, 0.3],
+               [64, 60, 128, 24, 0, 0.3, 0.3],
+               [64, 80, 128, 24, 0, 0.2, -1.0],
+               [48, 80, 192, 24, 0, 0.2, -1.0],
+               [48, 80, 202, 24, 0, 0.2, -1.0],
+               [48, 80, 204, 24, 0, 0.2, -1.0],
+               [46, 80, 216, 24, 0, 0.2, -1.0],
+               [64, 60, 176, 24, 0, 0.3, 0.3],
+               [64, 60, 192, 24, 0, 0.3, 0.3],
+               [48, 60, 224, 24, 0, 0.3, 0.3],
+               [64, 80, 192, 24, 0, 0.2, -1.0],
+               [80, 80, 192, 24, 0, 0.2, -1.0],
+               [96, 80, 192, 24, 0, 0.2, -1.0],
+               [64, 120, 256, 24, 0, 0.2, -1.0],
+               [80, 120, 256, 24, 0, 0.2, -1.0],
+               [96, 200, 256, 24, 0, 0.2, -1.0]]
+        a150-l2-k1024-soar:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'soar': true}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GIST-960 K=1024 alpha=1.5 SOAR + SQ8 seeding re-score (AF_SOAR=ON, AF_SQ8=ON, AF_FP16_BEAM=ON)
+            # Best: np=48 ef=80 ncs=280 → recall=0.9018 @ QPS=1252
+            # SIFT1M K=1024 SOAR: np=24 ef=80 ncs=64 → recall=0.9668 @ QPS=3811 (<<< BEAT Glass ef=400: 0.9654@3083)
+            # SIFT1M K=1024 SOAR: np=28 ef=90 ncs=64 → recall=0.9748 @ QPS=3091 (recall大幅上回り)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[24, 80, 64, 24, 0, 0.2, -1.0],
+               [28, 90, 64, 24, 0, 0.2, -1.0],
+               [32, 100, 96, 24, 0, 0.2, -1.0],
+               [40, 80, 320, 24, 0, 0.2, -1.0],
+               [40, 64, 360, 24, 0, 0.3, 0.3],
+               [48, 80, 280, 24, 0, 0.2, -1.0],
+               [48, 64, 300, 24, 0, 0.3, 0.3],
+               [48, 64, 320, 24, 0, 0.3, 0.3],
+               [48, 64, 360, 24, 0, 0.3, 0.3],
+               [48, 80, 300, 24, 0, 0.2, -1.0],
+               [48, 80, 320, 24, 0, 0.2, -1.0],
+               [48, 96, 260, 24, 0, 0.2, -1.0],
+               [48, 96, 280, 24, 0, 0.2, -1.0],
+               [56, 64, 260, 24, 0, 0.3, 0.3],
+               [56, 64, 280, 24, 0, 0.3, 0.3]]
+    ArcFlare-A140-L2:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-l2-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # SIFT-128 validated Pareto (80T, fix: sq8_rescore gated by !use_fp16_beam):
+            # np=2/ef=30/ncs=32: recall=0.7725@35559  np=3/ef=50/ncs=64: recall=0.8780@27323
+            # np=4/ef=50/ncs=128: recall=0.9191@17874  np=8/ef=100/ncs=128: recall=0.9683@10645
+            # np=16/ef=200/ncs=128: recall=0.9886@5945  np=32/ef=400/ncs=128: recall=0.9960@3119
+            # np=64/ef=800/ncs=128: recall=0.9981@1751  np=256/ef=1600/ncs=128: recall=0.9990@573
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[2, 20, 16, 24, 0, 0.3, 0.3],
+               [2, 30, 32, 24, 0, 0.3, 0.3],
+               [2, 50, 32, 24, 0, 0.3, 0.3],
+               [3, 30, 32, 24, 0, 0.3, 0.3],
+               [3, 50, 64, 24, 0, 0.3, 0.3],
+               [4, 30, 64, 24, 0, 0.3, 0.3],
+               [4, 50, 128, 24, 0, 0.3, 0.3],
+               [8, 50, 128, 24, 0, 0.3, 0.3],
+               [8, 100, 128, 24, 0, 0.2, -1.0],
+               [16, 100, 128, 24, 0, 0.2, -1.0],
+               [16, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 400, 128, 24, 0, 0.2, -1.0],
+               [64, 200, 128, 24, 0, 0.2, -1.0],
+               [64, 400, 128, 24, 0, 0.2, -1.0],
+               [64, 800, 128, 24, 0, 0.2, -1.0],
+               [128, 400, 128, 24, 0, 0.2, -1.0],
+               [128, 800, 128, 24, 0, 0.2, -1.0],
+               [256, 800, 128, 24, 0, 0.2, -1.0],
+               [256, 1600, 128, 24, 0, 0.2, -1.0]]
+        a140-l2-fp16-rf2:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # SIFT-128 K=256 FP32 hybrid rerank (rf=2):
+            # Glass SQ4U hard ceiling: 0.8402@92234 (SQ4U quantization saturates beyond 0.84)
+            # ArcFlare rf=2 breaks through Glass ceiling:
+            #   np=4  ef=40  ncs=16 rf=2 → 0.8115@51418   (close to Glass ef=400@92K at 0.84)
+            #   np=8  ef=80  ncs=32 rf=2 → 0.9274@25189   (Glass CANNOT reach 0.93!)
+            #   np=16 ef=100 ncs=64 rf=2 → 0.9687@15670
+            #   np=24 ef=150 ncs=96 rf=2 → 0.9857@10065
+            #   np=32 ef=200 ncs=128 rf=2→ 0.9920@7680
+            #   np=40 ef=300 ncs=160 rf=2→ 0.9956@5345
+            #   np=48 ef=400 ncs=192 rf=2→ 0.9971@4498
+            # fashion-784 low-recall band (beats Glass SQ4U ceiling 0.9519):
+            #   ncs=4 rf=0: recall~0.90-0.93 ultra-high-QPS
+            #   ncs=4 rf=2: recall~0.91-0.94 with FP32 rescore
+            #   ncs=8 rf=2: recall~0.95-0.97
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[2, 20, 4, 24, 0, 0.3, 0.3],
+               [2, 20, 4, 24, 0, 0.3, 0.3],
+               [4, 30, 4, 24, 0, 0.3, 0.3],
+               [4, 30, 4, 24, 0, 0.3, 0.3],
+               [4, 40, 8, 24, 0, 0.3, 0.3],
+               [4, 40, 8, 24, 0, 0.3, 0.3],
+               [4, 40, 16, 24, 0, 0.3, 0.3],
+               [8, 80, 32, 24, 0, 0.2, -1.0],
+               [16, 100, 64, 24, 0, 0.2, -1.0],
+               [24, 150, 96, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [40, 300, 160, 24, 0, 0.2, -1.0],
+               [48, 400, 192, 24, 0, 0.2, -1.0]]
+        a140-l2-sq4:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true}]
+          query-args:
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb]
+            # NOTE: sq4_beam=true selects build/python_sdk_sq4 but beam_mode='auto' → fp16 beam is used.
+            # beam_mode='sq4' on Fashion-MNIST D=784 returns recall=0.036 (NOT viable at D=784).
+            # Fashion-MNIST-784 fp16 beam Pareto (80T, 5-run, 2026-07-01):
+            #   [2,20,2]=0.9399@67479   [4,40,8]=0.9806@47450   [8,80,32]=0.9960@30766
+            #   [12,80,48,crinn=40]=0.9979@26557  [12,80,48]=0.9983@24042  [16,100,64]=0.9991@15471
+            #   SRG=0.10: [16,100,64]=0.9987@23766 (+45.7%)  SRG=0.30: 0.9991@19762 (+21.2%)
+            #   CRINN=20: [16,100,64]=0.9973@20833 (+24.4%)  CRINN=30: 0.9982@19089 (+14%)
+            #   [24,120,96]=0.9997@8278  [32,150,128]=0.9999@5736
+            # GIST-960-euclidean measured (single-thread, max_edges=128, alpha=1.5):
+            #   np=56 srg=0.2: recall>=0.99 (peak recall=0.9930 @ np=64,srg=0.3)
+            - [[ 2,  20,   2,  0,  0, -1.0, -1.0],
+               [ 4,  40,   8,  0,  0, -1.0, -1.0],
+               [ 8,  80,  32,  0,  0, -1.0, -1.0],
+               [12,  80,  48, 24, 40, -1.0, -1.0],
+               [12,  80,  48,  0,  0, -1.0, -1.0],
+               [16, 100,  64,  0,  0, -1.0, -1.0],
+               [16, 100,  64,  0,  0, -1.0, -1.0, 0.10],
+               [16, 100,  64,  0,  0, -1.0, -1.0, 0.30],
+               [24, 120,  96,  0,  0, -1.0, -1.0],
+               [32, 150, 128,  0,  0, -1.0, -1.0],
+               [56, 200, 128,  0,  0, -1.0, -1.0, 0.2],
+               [64, 200, 128,  0,  0, -1.0, -1.0, 0.2],
+               [64, 300, 192,  0,  0, -1.0, -1.0, 0.3]]
+        a140-l2-bapq:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'bapq': true}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # BAPQ: variance-sorted RoutingPQ, FP16 beam (same build as fp16 but with AF_BAPQ)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[2, 40, 2, 24, 0, 0.3, 0.3],
+               [2, 60, 4, 24, 0, 0.3, 0.3],
+               [4, 60, 4, 24, 0, 0.3, 0.3],
+               [4, 80, 8, 24, 0, 0.2, -1.0],
+               [8, 80, 8, 24, 0, 0.2, -1.0],
+               [8, 100, 16, 24, 0, 0.2, -1.0],
+               [16, 100, 32, 24, 0, 0.2, -1.0],
+               [16, 150, 64, 24, 0, 0.2, -1.0],
+               [24, 200, 96, 24, 0, 0.2, -1.0],
+               [32, 300, 128, 24, 0, 0.2, -1.0]]
+        a140-l2-saq-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'saq_fp16': true}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # SAQ-fp16: SAQ rotation + fp16 beam (AF_SAQ=ON + AF_FP16_BEAM=ON + AF_SQ8=ON + AF_SOAR=OFF)
+            # SIFT-128 validated Pareto (80T, fix: sq8_rescore gated by !use_fp16_beam):
+            # np=32/ef=200/ncs=128: recall=0.9958@7415  np=64/ef=400/ncs=128: recall=0.9987@3671
+            # np=16/ef=100/ncs=128: recall=0.9807@14032  np=64/ef=800/ncs=128: recall=0.9990@2976
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[2, 20, 16, 24, 0, 0.3, 0.3],
+               [2, 30, 32, 24, 0, 0.3, 0.3],
+               [3, 50, 64, 24, 0, 0.3, 0.3],
+               [4, 50, 128, 24, 0, 0.3, 0.3],
+               [8, 50, 128, 24, 0, 0.3, 0.3],
+               [8, 100, 128, 24, 0, 0.2, -1.0],
+               [16, 100, 128, 24, 0, 0.2, -1.0],
+               [16, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [32, 400, 128, 24, 0, 0.2, -1.0],
+               [64, 200, 128, 24, 0, 0.2, -1.0],
+               [64, 400, 128, 24, 0, 0.2, -1.0],
+               [64, 800, 128, 24, 0, 0.2, -1.0],
+               [128, 400, 128, 24, 0, 0.2, -1.0],
+               [128, 800, 128, 24, 0, 0.2, -1.0],
+               [256, 800, 128, 24, 0, 0.2, -1.0],
+               [256, 1600, 128, 24, 0, 0.2, -1.0]]
+        a140-l2-saq:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'saq': true}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # SAQ: per-subspace OPQ/PCA rotation for RoutingPQ (AF_SAQ=ON + AF_SQ8=ON + AF_SOAR=ON)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[2, 40, 2, 24, 0, 0.3, 0.3],
+               [2, 60, 4, 24, 0, 0.3, 0.3],
+               [4, 60, 4, 24, 0, 0.3, 0.3],
+               [4, 80, 8, 24, 0, 0.2, -1.0],
+               [8, 80, 8, 24, 0, 0.2, -1.0],
+               [8, 100, 16, 24, 0, 0.2, -1.0],
+               [16, 100, 32, 24, 0, 0.2, -1.0],
+               [16, 150, 64, 24, 0, 0.2, -1.0],
+               [24, 200, 96, 24, 0, 0.2, -1.0],
+               [32, 300, 128, 24, 0, 0.2, -1.0]]
+        a140-l2-sq2:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq2_beam': true}]
+          query-args:
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb]
+            # SQ2 beam: 2-bit packed codes, ~200 bytes/vector (fp16 1568B x1/8)
+            # Higher np needed to compensate 2-bit quantization loss vs SQ4
+            - [[ 4,  30,   4, 0, 0, -1.0, -1.0],
+               [ 4,  40,   8, 0, 0, -1.0, -1.0],
+               [ 4,  60,   8, 0, 0, -1.0, -1.0],
+               [ 8,  60,  16, 0, 0, -1.0, -1.0],
+               [ 8,  80,  16, 0, 0, -1.0, -1.0],
+               [ 8,  80,  32, 0, 0, -1.0, -1.0],
+               [16,  80,  32, 0, 0, -1.0, -1.0],
+               [16, 100,  64, 0, 0, -1.0, -1.0],
+               [24, 120,  64, 0, 0, -1.0, -1.0],
+               [32, 150,  96, 0, 0, -1.0, -1.0],
+               [48, 200, 128, 0, 0, -1.0, -1.0],
+               [64, 200, 128, 0, 0, -1.0, -1.0],
+               [64, 300, 192, 0, 0, -1.0, -1.0],
+               [80, 300, 192, 0, 0, -1.0, -1.0, 0.2],
+               [96, 400, 256, 0, 0, -1.0, -1.0, 0.2]]
+        a140-l2-rpq128:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'routing_pq_m': 128}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # routing_pq_m=128: Fashion-MNIST D=784→D_sub=6; GIST-960→D_sub=7.5; SIFT-128→D_sub=1
+            # Finer routing PQ granularity vs default M=64 — expected +2-5% QPS on high-dim datasets
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[4, 30, 4, 24, 0, 0.3, 0.3],
+               [4, 40, 8, 24, 0, 0.3, 0.3],
+               [8, 60, 16, 24, 0, 0.3, 0.3],
+               [16, 80, 32, 24, 0, 0.2, -1.0],
+               [24, 100, 64, 24, 0, 0.2, -1.0],
+               [32, 120, 96, 24, 0, 0.2, -1.0],
+               [40, 150, 128, 24, 0, 0.2, -1.0],
+               [48, 150, 128, 24, 0, 0.2, -1.0],
+               [56, 200, 192, 24, 0, 0.2, -1.0]]
+        a140-l2-graph-entry:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # n_probe=-1 activates graph_entry mode (bypasses cluster seeding, uses entry_points_ directly)
+            # Baseline measurement: how much recall is gained from cluster seeding vs pure graph traversal
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[-1, 40, 128, 24, 0, 0.3, 0.3],
+               [-1, 80, 128, 24, 0, 0.2, -1.0],
+               [-1, 160, 128, 24, 0, 0.2, -1.0],
+               [-1, 320, 128, 24, 0, 0.2, -1.0],
+               [-1, 640, 128, 24, 0, 0.2, -1.0],
+               [-1, 1200, 128, 24, 0, 0.2, -1.0],
+               [-1, 160, 128, 24, 0, 0.2, -1.0],
+               [-1, 320, 128, 24, 0, 0.2, -1.0],
+               [-1, 640, 128, 24, 0, 0.2, -1.0]]
+        a140-l2-fp16-v2:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - SIFT-128 Pareto (80T, M64/K256 simd-baseline):
+            # 0.5437@40468  0.6666@28637  0.7910@19702  0.9221@11646
+            # 0.9657@7098   0.9838@4558   0.9963@3463   0.9992@944  0.9993@850
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[  1,   20,  16, 24, 0, 0.3, 0.3],
+               [  2,   20,  16, 24, 0, 0.3, 0.3],
+               [  4,   20,  32, 24, 0, 0.3, 0.3],
+               [  4,   50,  48, 24, 0, 0.3, 0.3],
+               [  8,   50,  64, 24, 0, 0.3, 0.3],
+               [  8,  100,  96, 24, 0, 0.2, -1.0],
+               [ 12,  100,  96, 24, 0, 0.2, -1.0],
+               [ 16,  100, 128, 24, 0, 0.2, -1.0],
+               [ 16,  200, 128, 24, 0, 0.2, -1.0],
+               [ 24,  200, 160, 24, 0, 0.2, -1.0],
+               [ 32,  200, 192, 24, 0, 0.2, -1.0],
+               [ 32,  400, 256, 24, 0, 0.2, -1.0],
+               [ 48,  400, 320, 24, 0, 0.2, -1.0],
+               [ 64,  600, 384, 24, 0, 0.2, -1.0],
+               [ 96,  800, 512, 24, 0, 0.2, -1.0],
+               [128, 1200, 640, 24, 0, 0.2, -1.0],
+               [192, 1600, 768, 24, 0, 0.2, -1.0],
+               [256, 2000, 896, 24, 0, 0.2, -1.0]]
+        # ---- hnswgraft run-groups (2026-07-02): graph='hnsw' grafts hnswlib level-0
+        # edges onto the ArcFlare index (fit() builds hnswlib then graft_hnsw()).
+        # 1T non-batch Pareto (Zen2 AVX2) beats hnswlib itself by 1.2-1.9x on all
+        # datasets; official r6i (AVX512 VNNI) expected higher.
+        # Format: [np, ef, ncs, psm, crinn]
+        a140-l2-m96k1024-hnswgraft-sq4:  # SIFT-128 SQ4 beam (batch/80T champion; 1T near-fp16)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            # 2026-07-03 quiet-machine (Zen2 AVX2). 80T: [1,32,16]=0.9460@218717
+            #   [1,64,16]=0.9847@134810 [2,96,32]=0.9935@77189 [2,128,32]=0.9963@85281
+            #   [4,256,64]=0.9988@51742 [8,512,64]=0.9993@28374
+            # 1T: [1,64,16]=0.9847@6180 [2,112,32]=0.9952@3928 [2,128,32]=0.9963@3553
+            # vs Glass sift 80T 0.9954@89873 (tie at higher recall) / ScaNN 0.986@98270 (+37% at 0.985)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[1, 32, 16, 8, -1, 0.3, 0.3],
+               [1, 64, 16, 8, -1, 0.3, 0.3],
+               [2, 64, 16, 8, -1, 0.3, 0.3],
+               [2, 96, 32, 8, -1, 0.2, -1.0],
+               [2, 112, 32, 8, -1, 0.2, -1.0],
+               [2, 128, 32, 8, -1, 0.2, -1.0],
+               [4, 256, 64, 8, -1, 0.2, -1.0],
+               [8, 512, 64, 8, -1, 0.2, -1.0]]
+        a140-l2-m96k1024-hnswgraft-sq4-teps:  # ADDITIVE (2026-07-24), extends
+          # a140-l2-m96k1024-hnswgraft-sq4. term_eps calibrated per-point on the champion
+          # SIFT-128 SQ4 index; bit-identical recall at every row (sift128-full-recall-generalize task).
+          # Format: [np, ef, ncs, psm, crinn, rpqgm, epsfp16, srg, feef, wsb, fgf, sq4pfah, teps]
+          # QPS deltas (1T): np=1/ef=32 +0.8-5.9%, np=1/ef=64 within noise, np=2/ef=112 +2.0%,
+          # np=2/ef=128 +3.2% (T80 +3-12%), np=4/ef=256 +2.6%, np=8/ef=512 +6.2%.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            - [[1, 32,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [1, 64,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 112, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [2, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [8, 512, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6]]
+        a140-l2-m64k256-hnswgraft-sq4:  # Fashion-MNIST-784 SQ4 beam (80T: 0.9991@104092, 0.9997@61049)
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            - [[2, 64, 32, 8, -1, 0.3, 0.3],
+               [4, 128, 32, 8, -1, 0.2, -1.0],
+               [8, 256, 32, 8, -1, 0.2, -1.0]]
+        a140-l2-m64k256-hnswgraft-sq4-teps:  # ADDITIVE (2026-07-24), extends a140-l2-m64k256-hnswgraft-sq4.
+          # term_eps=0.4 calibrated on the champion Fashion-MNIST-784 SQ4 index; bit-identical
+          # recall at every row (fashionmnist-full-recall-generalize task).
+          # QPS deltas: np=2/ef=64 ~+1-2% (noise), np=4/ef=128 +10% (T80 +18%), np=8/ef=256 +27% (T80 +22%).
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'sq4_beam': true, 'beam_mode': 'sq4', 'graph': 'hnsw'}]
+          query-args:
+            - [[2, 64,  32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [8, 256, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
+        a140-l2-m96k1024-hnswgraft:  # SIFT-128
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [2,64,16]=0.9864@4500  [2,128,32]=0.9966@3017  [4,256,64,8,60]=0.9952@2911
+            #     [4,256,64,8,120]=0.9983@2163  [4,256,64]=0.9989@1951  [8,512,64]=0.9992@1096
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[2, 64, 16, 8, -1, 0.3, 0.3],
+               [2, 128, 32, 8, -1, 0.2, -1.0],
+               [4, 128, 64, 8, -1, 0.2, -1.0],
+               [4, 256, 64, 8, 60, 0.2, -1.0],
+               [4, 256, 64, 8, 120, 0.2, -1.0],
+               [4, 256, 64, 8, -1, 0.2, -1.0],
+               [8, 512, 64, 8, -1, 0.2, -1.0]]
+        a140-l2-m96k1024-hnswgraft-teps:  # ADDITIVE (2026-07-24), extends a140-l2-m96k1024-hnswgraft
+          # (fp16 beam). term_eps calibrated per-point on the champion SIFT-128 fp16 index;
+          # bit-identical recall at every row (sift128-full-recall-generalize task).
+          # Format: [np, ef, ncs, psm, crinn, rpqgm, epsfp16, srg, feef, wsb, fgf, sq4pfah, teps]
+          # QPS deltas (1T): np=1/ef=24 +0.6%(noisy), np=2/ef=32 +10.6%, np=2/ef=64 +0.8%
+          # (T80 +1.1%), np=2/ef=128 +5.2%, np=4/ef=256 +0.3%, np=8/ef=512 +9.9%(T80 +11.3%).
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[1, 24,  8,  8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 32,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 64,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.8],
+               [8, 512, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6]]
+        a140-l2-m64k256-hnswgraft:  # Fashion-MNIST-784
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [1,32,16]=0.9960@8191 [2,48,16]=0.9984@5978 [2,64,32]=0.9992@5130
+            #     [4,128,32]=0.9997@3548 [8,256,32]=0.9999@2295
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[1, 32, 16, 8, -1, 0.3, 0.3],
+               [2, 48, 16, 8, -1, 0.3, 0.3],
+               [2, 64, 32, 8, -1, 0.3, 0.3],
+               [4, 128, 32, 8, -1, 0.2, -1.0],
+               [8, 256, 32, 8, -1, 0.2, -1.0]]
+        a140-l2-m64k256-hnswgraft-teps:  # ADDITIVE (2026-07-24), extends a140-l2-m64k256-hnswgraft
+          # (fp16 beam). term_eps=0.4 calibrated on the champion Fashion-MNIST-784 fp16 index;
+          # bit-identical recall at every row (fashionmnist-full-recall-generalize task).
+          # NOTE (same task): vs Glass (SQ8U+FP16refine), the "全面勝ち" framing does NOT hold
+          # uniformly -- Glass is competitive-to-ahead in the low/mid recall band (0.93-0.996,
+          # both 1T/80T); AF's advantage is real but concentrated at recall>=~0.997, wider here
+          # with term_eps applied. vs ScaNN remains a clean win across the full recall band.
+          # QPS deltas: np=1/ef=32 ~0% (noise), np=2/ef=48 ~+1% (noise), np=2/ef=64 +6-8%,
+          # np=4/ef=128 +22-27% (T80 +24%), np=8/ef=256 +49-50% (T80 +62%).
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[1, 32,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 48,  16, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [2, 64,  32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [4, 128, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [8, 256, 32, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
+        a150-l2-m96k1024-rebuild-hnswgraft:  # GIST-960 fp16 beam
+          # BUGFIX (2026-07-24, gist960-full-recall-generalize task + orchestrator
+          # verification): arcflare.py's set_query_arguments auto-fills
+          # beam_rpq_gate_margin=0.2 for any <=5-element row with ef>=80 (all 4 rows here
+          # qualify). This SILENTLY DEGRADES recall vs the documented numbers below --
+          # independently re-verified pt1 [4,256,64,8,-1]: rpqgm=-1.0(off)=0.9812@410
+          # (matches doc) vs rpqgm=0.2(auto)=0.9564@409 (-2.5pt, same QPS -- pure recall
+          # loss, not a tradeoff). Made rpqgm explicit (-1.0) on all 4 rows to restore the
+          # documented/intended behavior; no other values changed.
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [4,256,64]=0.9812@378 [8,256,64]=0.9836@348 [8,512,64]=0.9929@235 [8,1024,64]=0.9959@151
+            - [[4, 256, 64, 8, -1, -1.0, -1.0],
+               [8, 256, 64, 8, -1, -1.0, -1.0],
+               [8, 512, 64, 8, -1, -1.0, -1.0],
+               [8, 1024, 64, 8, -1, -1.0, -1.0]]
+        a150-l2-m96k1024-rebuild-hnswgraft-teps:  # GIST-960 fp16 beam, ADDITIVE (2026-07-24)
+          # Adds a calibrated term_eps=0.3 row at the highest-recall operating point only
+          # (ef=256/512 showed no reproducible gain after reverse-order re-verification --
+          # negative, not included). 1T: 0.9957@182 (+17-19% vs 0.9959@153-155 baseline
+          # above, recall delta -0.0002 noise-level); 80T-avg-3rep +21% (811->982 QPS,
+          # recall bit-identical every rep).
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'graph': 'hnsw'}]
+          query-args:
+            - [[8, 1024, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.3]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft-apr:  # GIST-960 sq4 beam, ADDITIVE (2026-07-24)
+          # adaptive_probe_ratio on the hnswgraft champion is a smooth, non-collapsing
+          # recall/QPS knob here -- does NOT reproduce the "collapse" documented on the
+          # pre-graft e96-k256-a150-rebuild-rpq128-sq4-asym-beam group (algos.yaml ~line 574).
+          # term_eps gave no reproducible gain on this beam mode (negative, not included).
+          # 1T: 0.9898@391-394 (+24-26% vs 0.9907@311-315 baseline row 3 below; recall
+          # delta -0.09/-0.18pt, real but a non-dominated new Pareto point -- beats sq4 pt2
+          # (0.9864@442) on recall, beats sq4 pt3 (0.9907@311) on QPS). 80T-avg-3rep +15.8%
+          # (3660->4237 QPS, recall 0.9907->0.9898 identical every rep). Flips vs-ScaNN from
+          # -15% to +2% at this recall band.
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
+          query-args:
+            - [[16, 256, 64, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.3]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft-scantier:  # GIST-960 scan_tier, PROPOSED
+          # (2026-07-24, wire-scan-reorder-arcflare-py task): needs one fresh re-measurement
+          # pass through this now-wired python harness before trusting as a dated/measured
+          # row -- these numbers are CLI-only from scan-tier-apr-wiring, not yet confirmed
+          # under harness overhead. n_probe=64, scan_reorder=200, apr=0.5-0.7 -> recall~0.714
+          # (baseline-equivalent, +/-0.1%) for +50-90% QPS vs apr=0 (CLI-measured).
+          # NOTE: scan_tier's recall ceiling (~0.71-0.72) here is far below this same index's
+          # beam-path recall (0.99+) -- a separate, much-higher-QPS/lower-recall operating
+          # point, not a replacement for the beam rows above.
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
+          query-args:
+            # Full compact format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder]
+            - [[64, 256, 128, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.5, 200],
+               [64, 256, 128, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.7, 200]]
+        e96-k256-a150-rebuild-rpq128-sq4-asym-hnswgraft:  # GIST-960 sq4 beam (fastest ≥0.99)
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true, 'routing_pq_m': 128, 'sq4_beam': true, 'beam_mode': 'sq4', 'sq4_asym': true, 'graph': 'hnsw'}]
+          query-args:
+            # 1T: [8,128,64]=0.9708@579 [8,256,64]=0.9864@443 [16,256,64]=0.9907@304 [16,512,64]=0.9949@243 [32,512,64]=0.9968@161
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[8, 128, 64, 8, -1, 0.2, -1.0],
+               [8, 256, 64, 8, -1, 0.2, -1.0],
+               [16, 256, 64, 8, -1, 0.2, -1.0],
+               [16, 512, 64, 8, -1, 0.2, -1.0],
+               [32, 512, 64, 8, -1, 0.2, -1.0]]
+        a140-l2-m96k1024:
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - SIFT-128 M96/K1024 fp16 beam (80T, updated 2026-07-01):
+            # 0.4965@198079  0.6304@107995  0.7321@71385   0.7792@55842   0.8638@45771
+            # 0.8755@37492   0.8875@35198   0.9002@31786   0.9104@28811   0.9321@24649
+            # 0.9418@22876   0.9435@21394   0.9600@16915   0.9614@13393   0.9701@10665
+            # 0.9819@8143    0.9925@4001    0.9960@2753    0.9984@1662    0.9991@1098
+            # 0.9993@683
+            # FINGER gate (fgf=0.5) adds 6-12% QPS: see a140-l2-m96k1024-fgf run-group.
+            # CRINN sweep (2026-07-01, 80T, 5-run, psm=24):
+            #   [48,400,320] crinn=40: 0.9903@3385 (+56.7%) crinn=60: 0.9910@3205 (+48.3%)
+            #   [96,800,512] crinn=60: 0.9977@1698 (+52.2%)
+            #   [128,1200,640] crinn=60: 0.9987@1186 (+51.6%)
+            # np=48/64/96 CRINN fine sweep (2026-07-01, 80T, 5-run):
+            #   np  crinn  recall    QPS   base  delta
+            #    48      0  0.9924   3832       ref
+            #    48     40  0.9903   7344  +91.6%  Pareto ✓
+            #    48     60  0.9910   5588  +45.8%  Pareto ✓
+            #    64      0  0.9960   3352       ref
+            #    64     20  0.9931   4783  +42.7%  Pareto ✓
+            #    64     40  0.9946   5291  +57.9%  Pareto ✓ (recall↑QPS↑ over crinn=20)
+            #    64     60  0.9950   5054  +50.8%  Pareto ✗ (dominated by crinn=40)
+            #    96      0  0.9983   2478       ref
+            #    96     20  0.9965   3910  +57.8%  Pareto ✓ (recall↑QPS↑ over np=64 crinn=0)
+            #    96     40  0.9974   3784  +52.7%  Pareto ✗ (dominated by crinn=20)
+            #    96     60  0.9977   3634  +46.7%  Pareto ✗ (dominated by crinn=20)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[  1,   10,    8, 24, 0, 0.3, 0.3],
+               [  2,   20,   16, 24, 0, 0.3, 0.3],
+               [  4,   20,   32, 24, 0, 0.3, 0.3],
+               [  4,   50,   48, 24, 0, 0.3, 0.3],
+               [  8,   50,   64, 24, 0, 0.3, 0.3],
+               [  8,   80,   64, 24, 0, 0.2, -1.0],
+               [  9,   80,   72, 24, 0, 0.2, -1.0],
+               [ 10,   90,   80, 24, 0, 0.2, -1.0],
+               [ 11,  100,   88, 24, 0, 0.2, -1.0],
+               [ 14,  110,  104, 24, 0, 0.2, -1.0],
+               [ 16,  100,  128, 24, 0, 0.2, -1.0],
+               [ 16,  120,  128, 24, 0, 0.2, -1.0],
+               [ 20,  150,  144, 24, 0, 0.2, -1.0],
+               [ 20,  200,  160, 24, 0, 0.2, -1.0],
+               [ 24,  200,  160, 24, 0, 0.2, -1.0],
+               [ 32,  200,  192, 24, 0, 0.2, -1.0],
+               [ 48,  400,  320, 24, 0, 0.2, -1.0],
+               [ 48,  400,  320,  24,  40, 0.2, -1.0],
+               [ 48,  400,  320,  24,  60, 0.2, -1.0],
+               [ 64,  600,  384, 24, 0, 0.2, -1.0],
+               [ 64,  600,  384,  24,  20, 0.2, -1.0],
+               [ 64,  600,  384,  24,  40, 0.2, -1.0],
+               [ 96,  800,  512, 24, 0, 0.2, -1.0],
+               [ 96,  800,  512,  24,  20, 0.2, -1.0],
+               [ 96,  800,  512,  24,  60, 0.2, -1.0],
+               [128, 1200,  640, 24, 0, 0.2, -1.0],
+               [128, 1200,  640,  24,  60, 0.2, -1.0],
+               [192, 1600,  768, 24, 0, 0.2, -1.0]]
+        a140-l2-m96k1024-fgf:
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # SIFT-128 M96/K1024 FINGER gate (fgf=0.5, 80T, 5-run, 2026-07-01):
+            # D=128: fgf=0.3-0.5 provides +7-12% QPS with minimal recall loss across all operating points.
+            # Key results (fgf=off → fgf=best):
+            #   [16,100,128]:  0.9418@20182 → 0.9354@24302 (+20.4%, fgf=0.7, recall-0.0064)
+            #   [48,400,320]:  0.9924@5707  → 0.9916@6419  (+12.5%, fgf=0.3, recall-0.0008)
+            #   [96,800,512]:  0.9983@2877  → 0.9982@3106  (+8.0%,  fgf=0.5, recall-0.0001)
+            #   [128,1200,640]: 0.9991@1952 → 0.9991@2096  (+7.4%,  fgf=0.5, recall=0.0000) ← PURE PARETO
+            #   [192,1600,768]: 0.9992@1407 → 0.9992@1471  (+4.5%,  fgf=0.3, recall-0.0001)
+            # Format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf]
+            # CRINN+FGF combination (2026-07-01, 80T, 7-run verify):
+            #   [48,400,320] crinn=60+fgf=0.5: 0.9901@3124 (+44.6%) — worse than crinn=60 alone (3205)
+            #   [96,800,512] crinn=60+fgf=0.5: 0.9974@1711 (+53.4%) — slightly better than crinn alone (1698)
+            #   [128,1200,640] crinn=60+fgf=0.5: 0.9986@2549 (+259.9% vs 708 baseline) — VERIFIED REAL
+            - [[ 16,  100,  128, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.7],
+               [ 32,  200,  192, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [ 48,  400,  320, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.3],
+               [ 64,  600,  384, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [ 96,  800,  512, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [ 96,  800,  512, 24, 60, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [128, 1200,  640, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [128, 1200,  640, 24, 60, -1.0, -1.0, -1.0, -1.0, 0, 0.5],
+               [192, 1600,  768, 24, 0, -1.0, -1.0, -1.0, -1.0, 0, 0.3]]
+    ArcFlare-A150-L2:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a150-l2-fp16:
+          args: [{'alpha': 1.5, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GIST-960: index arcflare-D960-M64-K256-a1.50-ep32-cs128-gorder-l2
+            # rf=0 fp16 beam + rf=2 FP32 hybrid to beat Glass M=32 ceiling ~0.9756@951
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[16, 60, 64, 24, 0, 0.3, 0.3],
+               [24, 60, 64, 24, 0, 0.3, 0.3],
+               [32, 80, 80, 24, 0, 0.2, -1.0],
+               [36, 80, 96, 24, 0, 0.2, -1.0],
+               [40, 80, 96, 24, 0, 0.2, -1.0],
+               [40, 96, 128, 24, 0, 0.2, -1.0],
+               [48, 96, 128, 24, 0, 0.2, -1.0],
+               [56, 128, 160, 24, 0, 0.2, -1.0],
+               [28, 80, 96, 24, 0, 0.2, -1.0],
+               [36, 80, 96, 24, 0, 0.2, -1.0],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [36, 100, 128, 24, 0, 0.2, -1.0],
+               [40, 120, 128, 24, 0, 0.2, -1.0],
+               [44, 130, 160, 24, 0, 0.2, -1.0],
+               [48, 150, 160, 24, 0, 0.2, -1.0],
+               [52, 150, 192, 24, 0, 0.2, -1.0],
+               [56, 150, 192, 24, 0, 0.2, -1.0],
+               [60, 180, 224, 24, 0, 0.2, -1.0],
+               [64, 200, 256, 24, 0, 0.2, -1.0],
+               [72, 220, 256, 24, 0, 0.2, -1.0]]
+        a150-l2-m96k4096:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 4096, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true}]
+          query-args:
+            # Compact [np, ef, ncs] - GIST-960 (80T, M96/K4096 rebuild, fp16 beam; symlink→sq4-asym RPQ128):
+            # 0.7772@294  0.8660@173  0.9278@129  0.9580@99   0.9728@74
+            # 0.9869@49   0.9918@59   0.9952@43   0.9962@39   0.9981@32  0.9983@28
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[ 16,   80,   64, 24, 0, 0.2, -1.0],
+               [ 32,  160,  128, 24, 0, 0.2, -1.0],
+               [ 64,  300,  192, 24, 0, 0.2, -1.0],
+               [ 96,  450,  256, 24, 0, 0.2, -1.0],
+               [128,  600,  320, 24, 0, 0.2, -1.0],
+               [192,  900,  448, 24, 0, 0.2, -1.0],
+               [256, 1200,  512, 24, 0, 0.2, -1.0],
+               [320, 1600,  640, 24, 0, 0.2, -1.0],
+               [384, 2000,  768, 24, 0, 0.2, -1.0],
+               [512, 2500,  896, 24, 0, 0.2, -1.0],
+               [640, 3200, 1024, 24, 0, 0.2, -1.0]]
+        a150-l2-m96k1024:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'rebuild': true}]
+          query-args:
+            # Compact [np, ef, ncs] - GIST-960 M96/K1024 rebuild fp16 beam (80T).
+            # BEST config for all recall levels — 2-5x faster than M128/K4096.
+            # FINGER gate (D=960, 80T, 5-run, 2026-07-01): REJECTED — recall 0.99→0.95-0.96 (fatal).
+            # High dimensionality causes excessive skipping; no fgf value preserves recall≥0.99.
+            # Full sweep (2026-06-29): np=20 ef=130 ncs=144 dominates all np=16-32 old points.
+            # np=64-96 fill sweep (2026-06-29): Pareto front between np=56@555 and np=96@155.
+            # hr gap fill (2026-06-29): [128,600,512]+[256,1200,768] fill 0.9954→0.9985 gap.
+            # 0.4278@17492  0.5705@11218  0.6638@7172   0.7039@6234   0.8003@4601
+            # 0.8388@3521   0.8676@3200   0.8856@2649   0.8998@2165   0.9216@2222
+            # 0.9524@1848   0.9634@1536   0.9702@1238   0.9757@1176   0.9842@900
+            # 0.9886@726    0.9910@555    0.9915@540    0.9934@479    0.9939@449
+            # 0.9949@407    0.9950@402    0.9951@381    0.9953@348    0.9954@309
+            # 0.9976@199    0.9985@149    0.9986@77     0.9988@27
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[  1,   10,    8, 24, 0, 0.3, 0.3],
+               [  2,   20,   16, 24, 0, 0.3, 0.3],
+               [  3,   30,   24, 24, 0, 0.3, 0.3],
+               [  4,   30,   32, 24, 0, 0.3, 0.3],
+               [  6,   50,   48, 24, 0, 0.3, 0.3],
+               [  6,   80,   56, 24, 0, 0.2, -1.0],
+               [  8,   80,   64, 24, 0, 0.2, -1.0],
+               [  8,  100,   80, 24, 0, 0.2, -1.0],
+               [ 10,  100,   80, 24, 0, 0.2, -1.0],
+               [ 12,  120,   96, 24, 0, 0.2, -1.0],
+               [ 20,  130,  144, 24, 0, 0.2, -1.0],
+               [ 24,  160,  160, 24, 0, 0.2, -1.0],
+               [ 24,  200,  176, 24, 0, 0.2, -1.0],
+               [ 32,  200,  192, 24, 0, 0.2, -1.0],
+               [ 40,  240,  224, 24, 0, 0.2, -1.0],
+               [ 48,  300,  256, 24, 0, 0.2, -1.0],
+               [ 56,  350,  288, 24, 0, 0.2, -1.0],
+               [ 60,  360,  288, 24, 0, 0.2, -1.0],
+               [ 64,  400,  320, 24, 0, 0.2, -1.0],
+               [ 72,  400,  320, 24, 0, 0.2, -1.0],
+               [ 96,  450,  256, 24, 0, 0.2, -1.0],
+               [ 80,  420,  336, 24, 0, 0.2, -1.0],
+               [ 80,  450,  352, 24, 0, 0.2, -1.0],
+               [ 88,  450,  352, 24, 0, 0.2, -1.0],
+               [ 96,  480,  384, 24, 0, 0.2, -1.0],
+               [128,  600,  512, 24, 0, 0.2, -1.0],
+               [192,  900,  448, 24, 0, 0.2, -1.0],
+               [256, 1200,  768, 24, 0, 0.2, -1.0],
+               [640, 3200, 1024, 24, 0, 0.2, -1.0],
+            # GIST-960 CRINN sweep (2026-07-01, 80T, 5-run, recall≥0.99 only):
+            #   np  crinn  recall    QPS   base  delta
+            #   128    40  0.9902    817    405  +101.8%  (crinn=20: recall=0.9878 ✗)
+            #   192    20  0.9918    629    313  +100.7%  best QPS
+            #   192    40  0.9939    572    313   +82.4%  higher recall
+            #   256    20  0.9941    473    245   +93.3%
+            #   320    20  0.9952    362    185   +96.1%
+            #   384    20  0.9961    289    151   +91.3%
+            #   512    20  0.9967    232    124   +87.1%
+            # np=56/80 CRINN drops recall below 0.99 — NOT added.
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+               [128,  600,  512,  24,  40, 0.2, -1.0],
+               [192,  900,  448,  24,  20, 0.2, -1.0],
+               [192,  900,  448,  24,  40, 0.2, -1.0],
+               [256, 1200,  512,  24,  20, 0.2, -1.0],
+               [320, 1600,  640,  24,  20, 0.2, -1.0],
+               [384, 2000,  768,  24,  20, 0.2, -1.0],
+               [512, 2500,  896,  24,  20, 0.2, -1.0]]
+        a150-l2-m128k4096:
+          args: [{'alpha': 1.5, 'max_edges': 128, 'k_clusters': 4096, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - GIST-960 M128/K4096 fp16 beam (80T).
+            # Note: M96/K1024 rebuild is 2-5x faster at all recall levels.
+            # 0.7881@1705  0.8721@956  0.9298@577  0.9587@366  0.9734@274  0.9869@179
+            # 0.9920@133   0.9950@105  0.9967@87   0.9982@69   0.9985@56
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[ 16,   80,   64, 24, 0, 0.2, -1.0],
+               [ 32,  160,  128, 24, 0, 0.2, -1.0],
+               [ 64,  300,  192, 24, 0, 0.2, -1.0],
+               [ 96,  450,  256, 24, 0, 0.2, -1.0],
+               [128,  600,  320, 24, 0, 0.2, -1.0],
+               [192,  900,  448, 24, 0, 0.2, -1.0],
+               [256, 1200,  512, 24, 0, 0.2, -1.0],
+               [320, 1600,  640, 24, 0, 0.2, -1.0],
+               [384, 2000,  768, 24, 0, 0.2, -1.0],
+               [512, 2500,  896, 24, 0, 0.2, -1.0],
+               [640, 3200, 1024, 24, 0, 0.2, -1.0]]
     vamana(diskann):
       docker-tag: ann-benchmarks-diskann
       module: ann_benchmarks.algorithms.diskann
@@ -664,6 +2187,676 @@ float:
           query-args: [[10, 20, 40, 80, 120, 200, 400, 600, 800]]
 
   angular:
+    ArcFlare-A140-Ang-K1024:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-ang-m96k1024-hnswgraft:  # GloVe-100 / NYTimes-256 (crinn hurts angular here: keep -1)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T non-batch (Zen2 AVX2, 2026-07-02), format [np, ef, ncs, psm, crinn]:
+            # GloVe 1T: [2,128,32]=0.9055@1759 [4,256,64]=0.9465@1090 [8,512,64]=0.9728@646
+            #           [8,1024,64]=0.9861@370 [16,2048,64]=0.9924@198 [32,4096,64]=0.9941@99
+            # NYTimes 1T: [2,128,32]=0.9296@1381 [4,256,32]=0.9493@860 [8,512,64]=0.9657@501
+            #             [8,1024,64]=0.9750@275 [16,2048,64]=0.9803@140
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[2, 128, 32, 8, -1, 0.2, -1.0],
+               [4, 256, 32, 8, -1, 0.2, -1.0],
+               [4, 256, 64, 8, -1, 0.2, -1.0],
+               [8, 512, 64, 8, -1, 0.2, -1.0],
+               [8, 1024, 64, 8, -1, 0.2, -1.0],
+               [16, 2048, 64, 8, -1, 0.2, -1.0],
+               [32, 4096, 64, 8, -1, 0.2, -1.0]]
+        a140-ang-m96k1024-hnswgraft-teps:  # ADDITIVE: term_eps A/B vs a140-ang-m96k1024-hnswgraft
+          # (champion-hnswgraft-recalibrate, 2026-07-24). Per-point calibrated teps (NOT a single
+          # constant -- verified bit-identical recall on BOTH glove-100-angular AND
+          # nytimes-256-angular simultaneously, T1, build/cmd/arcflare direct). np<=4 (recall<0.95)
+          # showed NO material benefit on either dataset and are intentionally omitted here.
+          # T1 measured: np=8/ef512 teps=0.4 -> 0.9727@573(+3.2%)/0.9657@514(+12.2%)
+          #              np=8/ef1024 teps=0.5 -> 0.9861@364(+5.8%)/0.9750@310(+16.1%)
+          #              np=16/ef2048 teps=0.6 -> 0.9924@208(+5.6%)/0.9803@167(+16.8%)
+          #              np=32/ef4096 teps=0.5 -> 0.9941@123(+17.1%)/0.9819@99(+32.0%)
+          # Corrected competitor verdict (champion baseline, replaces any prior non-champion
+          # reading): vs ScaNN glove-100 recall~0.99 narrows 6.0x->5.7x (does not close); vs
+          # ONNG glove-100 narrows ~2.0x->1.9x (ONNG still wins, its edge is selective
+          # high-degree-graph traversal, a mechanism distinct from term_eps's early
+          # termination); vs ScaNN nytimes-256 gains land within the +33-45% predicted range
+          # from scann-gap-design-screening but the multiplicative gap still does not close.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[  8,  512,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [  8, 1024,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5],
+               [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5]]
+        a140-ang-m96k1024-hnswgraft-teps-aggr:  # OPTIONAL/aggressive variant: uniform teps=0.4,
+          # larger QPS gain at a tiny (<=0.0002pt) recall cost on glove-100 (nytimes np=32 is
+          # still bit-identical at this value). Present as a separate row so the safe variant
+          # above stays a clean, unambiguous bit-identical addition.
+          # T1: np=8/1024 -> 0.9860@377(+9.6%)/0.9750@318(+19.1%, bit-id)
+          #     np=16/2048 -> 0.9922@242(+22.8%)/0.9802@195(+36.4%)
+          #     np=32/4096 -> 0.9939@149(+41.9%)/0.9819@112(+49.3%, bit-id)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            - [[  8, 1024,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
+        a140-ang-m96k1024-hnswgraft-sq4:  # ADDITIVE: SQ4 quantized beam (build/python_sdk_sq4,
+          # AF_SQ4=ON AF_SQ8=ON AF_FP16_BEAM=OFF) vs the fp16 champion (-teps row) above. Reuses
+          # the SAME on-disk index bytes -- both this row's '-sq4-hnswgraft' cache dir and the
+          # plain '-hnswgraft' champion dir already contain byte-identical sq4.bin/sq8.bin
+          # sidecars (same size/mtime, 2026-07-02) -- no rebuild needed, only the compiled .so +
+          # beam_mode differ. sq4-beam-champion-wire task, 2026-07-29, extends the single-point
+          # T80 probe in beam-sq48-t80-killgate ([[beam_sq48_t80_killgate_threshold_effect]]) to
+          # the full -teps recall band, full N=10000 test-set queries (not a subset), T1 AND T80.
+          # CRITICAL dispatcher gotcha: beam_mode must be explicit 'sq4', NOT 'auto' -- this
+          # build has AF_FP16_BEAM=OFF, and Auto-mode's dispatch order tries SQ8 before SQ4
+          # whenever AF_SQ8 is also compiled (always true here), so 'auto' silently picks SQ8
+          # instead of SQ4 (Index.cpp:2150-2161 dispatch order; see also the coarse-rpq-beam-
+          # recall-probe task's separate finding that beam_mode='sq4' on a build WITHOUT AF_SQ4
+          # compiled in falls back to a different, noisier "coarse-only RPQ-block beam" path --
+          # always confirm AF_SQ4=ON via CMakeCache.txt before trusting this row's numbers).
+          # GloVe-100 T1/T80 QPS, full N=10000, vs fp16 champion (-teps row) at IDENTICAL
+          # (np,ef,teps) params -- recall_fp16 -> recall_sq4 (delta), QPS T1 (delta), QPS T80 (delta):
+          #  [2,128]     0.90551->0.90405(-0.0015) T1 1670->1761(+5%)   T80 26341->40187(+53%)
+          #  [4,256,32]  0.94548->0.94530(-0.0002) T1 1066->1071(+0.5%) T80 16387->25431(+55%)
+          #  [4,256,64]  0.94653->0.94636(-0.0002) T1 1055->1064(+1%)   T80 16401->25054(+53%)
+          #  [8,512]     0.97269->0.97198(-0.0007) T1  577-> 697(+21%)  T80  9205->15466(+68%)
+          #  [8,1024]    0.98606->0.98586(-0.0002) T1  354-> 428(+21%)  T80  5167-> 9708(+88%)
+          #  [16,2048]   0.99236->0.99227(-0.0001) T1  203-> 232(+14%)  T80  3030-> 5124(+69%)
+          #  [32,4096]   0.99407->0.99414(+0.0001) T1  121-> 135(+12%)  T80  1587-> 3169(+100%)
+          # HONEST caveat: recall is marginally LOWER than fp16 at IDENTICAL params for np<=8
+          # (up to -0.0015, i.e. <=0.15pp -- a real quantization effect, confirmed at full
+          # N=10000, not subset noise), converging to parity (+/-0.0001) at np>=16 (the
+          # champion's actual target high-recall band). This is NOT strict per-point Pareto
+          # domination at np<=8 (recall is lower there even though QPS is far higher) -- but on
+          # the recall-vs-QPS CURVE it dominates: the tiny recall gap is trivially closeable
+          # with a small ef increase given SQ4's large QPS headroom at that recall level.
+          # vs ScaNN (glove-100, SAME machine, docs/superpowers/specs/competitor-data/
+          # dig2_scann.json, linear-interpolated at each fp16 recall point): T1 gap narrows from
+          # fp16's 3.7-8.4x behind to SQ4's 3.2-7.5x behind; T80 gap narrows much more (fp16
+          # 4.1-29x behind -> SQ4 2.7-14.5x behind, roughly halving the multiplicative gap at
+          # recall>=0.97) -- ScaNN still wins comprehensively at T80, SQ4 narrows but does not
+          # close this gap.
+          # NYTimes-256 (SAME build/index recipe, D=256 -- confirms SQ4 generalizes across
+          # dimension here, unlike some other quantization schemes' known dimension-dependence):
+          # recall parity (+/-0.0005) at every point tested (np=2..16); QPS +9% to +29% at T1,
+          # +82% to +152% at T80 (LARGER relative gains than glove-100). vs ScaNN nytimes-256:
+          # SQ4 reaches NEAR-PARITY or a slight WIN at recall 0.93-0.95 (T1 ratio 1.02-1.04x,
+          # T80 ratio 0.96-1.05x -- fp16 was only 0.90-0.95x/0.47-0.53x there), still behind at
+          # recall~0.98 (T1 0.52x, T80 0.53x vs fp16's 0.41x/0.21x) -- a large narrowing, not
+          # full closure.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw', 'sq4_beam': true, 'beam_mode': 'sq4'}]
+          query-args:
+            - [[2, 128, 32, 8, -1, 0.2, -1.0],
+               [4, 256, 32, 8, -1, 0.2, -1.0],
+               [4, 256, 64, 8, -1, 0.2, -1.0],
+               [  8,  512,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [  8, 1024,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5],
+               [ 16, 2048,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6],
+               [ 32, 4096,  64,  8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.5]]
+        a140-ang-m96k1024-hnswgraft-rpq64-scantier:  # GloVe-100 / NYTimes-256 scan_tier via
+          # rebuild_routing_pq(64) (D_sub=2 @ D=100, D_sub=4 @ D=256). ADDITIVE: distinct index
+          # tag (-rpq64) from the beam champion above, requires a fresh full index build --
+          # routing_pq_m only fires on arcflare.py's fresh-build branch, never on a cache-hit
+          # load (scantier-rpq64-champion-factcheck task finding). Built+harness-verified by
+          # rpq64-champion-index-build-and-wire (2026-07-25/26).
+          # scan_tier(rpq64=64) DOMINATES or ties the beam champion above across ~0.91-0.995
+          # recall (glove-100) at T1/T16/T80 -- mechanism: the sharper D_sub=2/4 RoutingPQ filter
+          # (vs the coarse D_sub=8 auto-default) reaches these recall levels at
+          # scan_reorder=300-20000 instead of 8000-64000, keeping scan_tier's simpler SIMD kernel
+          # cheaper than beam's graph traversal.
+          # CORRECTION (2026-07-26/29, nytimes-k2048-parity-build task): on nytimes-256 this
+          # domination is a T80/throughput-mode phenomenon ONLY -- at T1 scan_tier and beam are
+          # roughly at parity (beam wins some points), verified by direct comparison against
+          # a140-ang-m96k1024-hnswgraft-teps's documented T1 numbers. Do not read "T1/T16/T80"
+          # above as applying to nytimes-256; it holds for glove-100 only.
+          # GloVe-100 T1 in-process (np,ef=256,ncs=64,sr): [64,300]=0.9100@2154 [100,300]=0.9356@1574
+          #   [150,300]=0.9548@1166 [200,300]=0.9669@941 [200,1000]=0.9699@759 [300,300]=0.9790@697
+          #   [384,1000]=0.9883@488 [512,2000]=0.9922@335 [768,4000]=0.9945@201 [1024,8000]=0.9947@128
+          # NYTimes-256 T1 in-process (np,ef=256,ncs=64,sr): [64,1000]=0.8951@1115 [128,1000]=0.9415@841
+          #   [128,3000]=0.9505@447 [224,3000]=0.9710@402 [224,6000]=0.9735@259 [256,8000]=0.9770@210
+          #   [256,12000]=0.9775@157 [384,20000]=0.9817@103
+          # vs ScaNN (in-process): glove-100 gap narrows to ~2.7-3.5x, nytimes-256 to ~1.35-3.6x
+          # (both well inside the beam champion's own gap) -- pending this task's harness re-check.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw', 'routing_pq_m': 64}]
+          query-args:
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder]
+            - [[64,   256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 300],
+               [100,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 300],
+               [150,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 300],
+               [200,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 300],
+               [200,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 1000],
+               [300,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 300],
+               [384,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 1000],
+               [512,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 2000],
+               [768,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 4000],
+               [1024, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 8000],
+               [64,   256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 1000],
+               [128,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 1000],
+               [128,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 3000],
+               [224,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 3000],
+               [224,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 6000],
+               [256,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 8000],
+               [256,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 12000],
+               [384,  256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 20000]]
+        a140-ang-m96k1024-hnswgraft-rpq64-k2048-lowrecall:  # NYTimes-256 ADDITIVE, narrow band-
+          # extension ONLY. K=2048 (D_sub=4, ScaNN nl=2000 parity: 141.6 pts/partition vs
+          # ScaNN's 145) -- measured 2026-07-26, nytimes-k2048-parity-build task. MIXED verdict
+          # vs the K1024 rpq64-scantier row above: wins ONLY at recall 0.90-0.95 (+14-19% QPS,
+          # T1), REGRESSES -12% to -35% at recall>=0.97 (Pareto-dominated by the K1024 row there
+          # -- do NOT add those points here). Recall ceiling did not improve (0.9819 vs K1024's
+          # 0.9817). K1024 rpq64-scantier remains the champion for recall>=0.955; this row is a
+          # low-recall-band supplement only, not a replacement. Requires a SEPARATE fresh index
+          # build (routing_pq_m only fires on fresh build): {k_clusters:2048, routing_pq_m:64}
+          # vs the K1024 row's {k_clusters:1024, routing_pq_m:64}.
+          # T1 in-process (np,ef=256,ncs=64,sr): [128,1000]=0.9072@1236 [256,3000]=0.9539@500
+          # T80 (same points): [128,1000]=0.9072@40898 [256,3000]=0.9539@15430
+          # NOTE: a live same-grid K1024 T80/T16 re-measurement was not completed (shared
+          # bench-lock contention) -- treat the T80 comparison as directional.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 2048, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw', 'routing_pq_m': 64}]
+          query-args:
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder]
+            - [[128, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 1000],
+               [256, 256, 64, 8, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0, 3000]]
+        a140-ang-m64k1024-hnswgraft:  # GloVe-25 (requires low-dim fixes: fp16-exact non-batch + BeamPool all d_eff)
+          # REGRESSION FLAG RESOLVED (2026-07-24, glove25-p3p4-regression-bisect task): the
+          # ~18-19% P3/P4 QPS deficit reported by glove25-full-recall-generalize did NOT
+          # reproduce with taskset-pinned, contention-free measurement across 3 commits
+          # (2026-07-02 / mid-range / current HEAD) -- recall was bit-identical to the
+          # 2026-07-02 numbers at all 3 points, and QPS was statistically indistinguishable
+          # once other concurrent swarm bench processes on this shared machine were ruled
+          # out. Confirmed phantom: a measurement artifact from CPU contention with sibling
+          # tasks running concurrently on this machine, not a code regression.
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # 1T (Zen2, 2026-07-02): [2,32,16]=0.9839@4901 [4,64,32]=0.9858@4295
+            #   [4,128,32]=0.9940@2204 [8,256,64]=0.9955@1444 [8,512,64]=0.9957@998 (ceiling≈0.9958)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[2, 32, 16, 8, -1, 0.3, 0.3],
+               [4, 64, 32, 8, -1, 0.3, 0.3],
+               [4, 128, 32, 8, -1, 0.2, -1.0],
+               [8, 256, 64, 8, -1, 0.2, -1.0],
+               [8, 512, 64, 8, -1, 0.2, -1.0]]
+        a140-ang-m64k1024-hnswgraft-teps-apr:  # ADDITIVE (2026-07-24, glove25-full-recall-generalize
+          # task): per-point term_eps+adaptive_probe_ratio on top of the champion above. Only the
+          # 3 highest-ef points show measurable, reproducible gain -- np=2/4-probe points show
+          # ~0-3% (noise floor), NOT included here. Recall: np=4/ef=128 bit-identical 0.9932;
+          # np=8/ef=256 bit-identical 0.9953; np=8/ef=512 -0.0001 (reproduced 2x T80 + 1x T1).
+          # T1 gain: +2.5%/+4.3%/+20.2%. T80 gain (rep avg): +4.3%/+2.9%(noisy)/+35.8%.
+          # CORRECTED VERDICT (same task, full-Pareto not single-point comparison): Glass (same
+          # machine, SQ8U+FP16refine) actually WINS ~1.5-2.1x across most of the practical recall
+          # range (0.98-0.995) at both 1T/80T -- the mission's prior "1T AF 圧勝 2.5x" verdict
+          # compared AF's near-ceiling point against Glass's SLOWEST point, not recall-matched.
+          # AF only wins in the narrow tail beyond Glass's own recall ceiling (>=0.9946), and at
+          # 80T even that narrow win requires this teps+apr calibration (baseline alone LOSES to
+          # Glass at np=8/512). vs ScaNN: AF's 1T advantage (3-4x) holds and widens with
+          # calibration, but ScaNN wins decisively at 80T in the np=8/256-512 band (ScaNN's
+          # 1T->80T scaling is ~194x vs AF's ~33-37x). See task report for the full recall-band
+          # table. Also independently re-confirmed the "np=64/ef=1400 superadditive +268-276%"
+          # finding from adaptive-probe-ratio-validation is REAL (not a measurement artifact,
+          # interleaved-order reproduced) but Pareto-DOMINATED by the np=8/512 champion point
+          # even after the boost -- do not add oversized np/ef combos on the strength of that effect.
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder', 'graph': 'hnsw'}]
+          query-args:
+            # [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr]
+            - [[4, 128, 32, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.6, 1.5],
+               [8, 256, 64, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.8, 1.0],
+               [8, 512, 64, 8, -1, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.8, 0.5]]
+        a140-ang-k1024-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef]
+            # K=1024 multi-tier rebuild — GloVe-100 validated Pareto front (80T warm):
+            # recall=0.7751@39926, 0.8145@29611, 0.8413@21337, 0.9008@8873, 0.9394@5040, 0.9882@1061
+            # NYTimes-256 K=1024 sweep (80T fp16, ncs≈128 default):
+            #   np=1  ef=10  → 0.5699@56802
+            #   np=2  ef=20  → 0.6302@51666
+            #   np=4  ef=20  → 0.6794@43668
+            #   np=8  ef=30  → 0.7281@34380
+            #   np=16 ef=80  → 0.7837@19613
+            #   np=32 ef=200 → 0.8458@6031  (Glass max: 0.9584@5392)
+            #   np=64 ef=500 → 0.9042@1669
+            #   np=80 ef=600 → 0.9214@1198
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[1, 10, 128, 24, 0, 0.3, 0.3],
+               [1, 20, 128, 24, 0, 0.3, 0.3],
+               [2, 20, 128, 24, 0, 0.3, 0.3],
+               [2, 50, 128, 24, 0, 0.3, 0.3],
+               [4, 20, 128, 24, 0, 0.3, 0.3],
+               [4, 50, 128, 24, 0, 0.3, 0.3],
+               [8, 20, 128, 24, 0, 0.3, 0.3],
+               [8, 50, 128, 24, 0, 0.3, 0.3],
+               [8, 100, 128, 24, 0, 0.2, -1.0],
+               [16, 50, 128, 24, 0, 0.3, 0.3],
+               [16, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 50, 128, 24, 0, 0.3, 0.3],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [64, 100, 128, 24, 0, 0.2, -1.0],
+               [64, 200, 128, 24, 0, 0.2, -1.0],
+               [64, 400, 128, 24, 0, 0.2, -1.0],
+               [128, 200, 128, 24, 0, 0.2, -1.0],
+               [128, 400, 128, 24, 0, 0.2, -1.0],
+               [128, 800, 128, 24, 0, 0.2, -1.0],
+               [256, 400, 128, 24, 0, 0.2, -1.0],
+               [256, 800, 128, 24, 0, 0.2, -1.0],
+               [256, 1600, 128, 24, 0, 0.2, -1.0]]
+        a140-ang-k1024-pe50:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, term_eps_fp16, rerank_sq8, pool_extra]
+            # pool_extra=50: extra beam pool slots flushed to results before reranking.
+            # Improves recall ~2% at ef=20-50, ~1% at ef=100 with negligible QPS cost.
+            # Most effective in mid-recall range (0.80-0.93) to fill Pareto gaps.
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[2, 20, 128, 24, 0, 0.3, 0.3],
+               [4, 20, 128, 24, 0, 0.3, 0.3],
+               [4, 50, 128, 24, 0, 0.3, 0.3],
+               [8, 20, 128, 24, 0, 0.3, 0.3],
+               [8, 50, 128, 24, 0, 0.3, 0.3],
+               [16, 50, 128, 24, 0, 0.3, 0.3],
+               [16, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 50, 128, 24, 0, 0.3, 0.3],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [64, 100, 128, 24, 0, 0.2, -1.0],
+               [64, 200, 128, 24, 0, 0.2, -1.0],
+               [128, 200, 128, 24, 0, 0.2, -1.0],
+               [128, 400, 128, 24, 0, 0.2, -1.0]]
+        a140-ang-k1024-ncs:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GloVe-100 K=1024 ncs sweep: ncs < 128 cuts seeding cost proportionally.
+            # IMPORTANT: ncs=128 has recall ceiling ~0.86. Use ncs≥512 for recall >0.90.
+            # Baseline (no ncs, fp16): 0.7751@39926, 0.9008@8873, 0.9394@5040, 0.9882@1061
+            # GloVe-100 K=1024 ACTUAL (16T, ncs=512):
+            #   np=64  ef=400  → 0.9009@2704
+            #   np=128 ef=800  → 0.9390@1307
+            #   np=192 ef=1200 → 0.9577@890
+            #   np=256 ef=2000 → 0.9680@677
+            #   np=384 ef=3000 → 0.9779@457
+            # ncs=16 ultra-high QPS (50K-80K): ncs reduces 8x overhead vs default
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[1, 10, 16, 24, 0, 0.3, 0.3],
+               [1, 20, 16, 24, 0, 0.3, 0.3],
+               [2, 20, 16, 24, 0, 0.3, 0.3],
+               # ncs=32: high QPS (20K-40K), recall ~0.80-0.88
+               [2, 20, 32, 24, 0, 0.3, 0.3],
+               [4, 20, 32, 24, 0, 0.3, 0.3],
+               [4, 50, 32, 24, 0, 0.3, 0.3],
+               # ncs=64: mid-high QPS (8K-20K), recall ~0.88-0.93
+               [4, 50, 64, 24, 0, 0.3, 0.3],
+               [8, 50, 64, 24, 0, 0.3, 0.3],
+               [8, 100, 64, 24, 0, 0.2, -1.0],
+               [16, 50, 64, 24, 0, 0.3, 0.3],
+               [16, 100, 64, 24, 0, 0.2, -1.0],
+               # ncs=128: default behavior (reference Pareto, recall ceiling ~0.86)
+               [16, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 100, 128, 24, 0, 0.2, -1.0],
+               [32, 200, 128, 24, 0, 0.2, -1.0],
+               [64, 200, 128, 24, 0, 0.2, -1.0],
+               [64, 400, 128, 24, 0, 0.2, -1.0],
+               [128, 400, 128, 24, 0, 0.2, -1.0],
+               # ncs=512: high-recall (1K-3K QPS), recall 0.90-0.97 (16T measured)
+               [32, 200, 512, 24, 0, 0.2, -1.0],
+               [64, 400, 512, 24, 0, 0.2, -1.0],
+               [128, 800, 512, 24, 0, 0.2, -1.0],
+               [192, 1200, 512, 24, 0, 0.2, -1.0],
+               [256, 2000, 512, 24, 0, 0.2, -1.0],
+               [384, 3000, 512, 24, 0, 0.2, -1.0]]
+        a140-ang-k1024-rf2:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GloVe-100 K=1024 FP32 hybrid rerank (rf=2):
+            # Beats Glass SQ8U batch from 0.79 recall:
+            #   np=8  ef=60  ncs=32  rf=2 → 0.7934@36006  (Glass ef=800@34155)
+            #   np=12 ef=80  ncs=48  rf=2 → 0.8332@23837  (Glass ef=1200@19371)
+            #   np=16 ef=100 ncs=64  rf=2 → 0.8601@18066  (Glass ef=2000@11239)
+            #   np=24 ef=120 ncs=96  rf=2 → 0.8901@13460  (no Glass equivalent)
+            #   np=32 ef=150 ncs=128 rf=2 → 0.9109@9615
+            #   np=40 ef=200 ncs=160 rf=2 → 0.9262@7327
+            #   np=48 ef=300 ncs=192 rf=2 → 0.9413@5311
+            #   np=64 ef=400 ncs=256 rf=2 → 0.9548@3660
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[4, 40, 16, 24, 0, 0.3, 0.3],
+               [8, 60, 32, 24, 0, 0.3, 0.3],
+               [12, 80, 48, 24, 0, 0.2, -1.0],
+               [16, 100, 64, 24, 0, 0.2, -1.0],
+               [24, 120, 96, 24, 0, 0.2, -1.0],
+               [32, 150, 128, 24, 0, 0.2, -1.0],
+               [40, 200, 160, 24, 0, 0.2, -1.0],
+               [48, 300, 192, 24, 0, 0.2, -1.0],
+               [64, 400, 256, 24, 0, 0.2, -1.0]]
+        a140-ang-m96-k1024:
+          # NOTE (2026-07-24, champion-hnswgraft-recalibrate task): this run-group has NO
+          # 'graph':'hnsw' -- it is NOT the config used by docs/superpowers/specs/
+          # 2026-07-03-competitor-matrix.md's ScaNN/Glass/ONNG comparison (that used
+          # a140-ang-m96k1024-hnswgraft below, ~2.6-4x faster at matching recall). The
+          # term_eps/adaptive_probe_ratio calibration on THIS run-group
+          # (a140-ang-m96-k1024-teps/-apr-teps) is internally valid but must not be read as
+          # closing the ONNG/ScaNN gap -- see a140-ang-m96k1024-hnswgraft-teps for the
+          # champion-baseline calibration and the corrected competitor verdict.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - M96/K1024 fp16 beam (80T):
+            # GloVe-100 simd-baseline Pareto (80T, updated 2026-06-29):
+            #   0.6410@45700  0.7033@41702  0.7226@34965  0.7701@33954  0.7721@26483
+            #   0.8042@23979  0.8276@18101  0.8441@15369  0.8742@12564  0.8760@11495
+            #   0.8836@10173  0.8911@9142   0.8976@8848   0.9025@7443   0.9044@6821
+            #   0.9184@6318   0.9203@5042   0.9271@4387   0.9327@3901   0.9336@3623
+            #   0.9379@3231   0.9422@2953   0.9554@1968   0.9715@1094   0.9805@779
+            #   0.9857@536    0.9891@407    0.9925@282
+            # GloVe-100 FINGER gate (warm cache, 80T, 5-run, 2026-07-01):
+            #   [128,600,320]:  fgf=0.5 → +1.6%, fgf=0.7 → +1.4% (recall-0.0005)
+            #   [256,1200,512]: fgf=0.5 → +0.7%, fgf=0.7 → -0.6% (recall-0.0002)
+            #   [384,2000,768]: fgf=0.5/0.6 → +0.8%, fgf=0.7 → -2.2%
+            #   [512,2500,896]: fgf=0.5 → +4.0%, fgf=0.7 → +4.5% (largest warm-cache effect)
+            #   CONCLUSION: D=100 FINGER gate warm-cache effect is small (+0.7% typical, max +4.5%).
+            #   Earlier +162% result was CPU-competition noise (NYTimes sweep ran concurrently).
+            #   Cold-cache test (2026-07-01, np=256 ef=1200 ncs=512): +0.07% QPS, recall-0.0002 → NOT viable.
+            #   FINAL VERDICT: GloVe-100 FINGER gate provides negligible benefit. Do NOT add to query-args.
+            # NYTimes-256 alpha=1.40 ceiling (80T, confirmed 2026-07-01):
+            #   [256,1200,512] → 0.9771@341  [320,1600,640] → 0.9801@396
+            #   [384,2000,768] → 0.9815@435  [512,2500,896] → 0.9822@358
+            #   [640,3000,1024] → 0.9822@301  ← ceiling confirmed = 0.9822
+            # NYTimes-256 alpha=1.50 (80T, 2026-07-01): DOES NOT exceed ceiling.
+            #   BUT delivers 2-3× QPS at mid-recall vs alpha=1.40:
+            #   [128,600,320] → 0.9518@1455  [192,900,448] → 0.9698@955
+            #   [256,1200,512] → 0.9767@712 (+108% vs a1.40@341)
+            #   [320,1600,640] → 0.9797@535 (+35% vs a1.40@396)
+            #   [384,2000,768] → 0.9811@449 (+3% vs a1.40@435)
+            #   [512,2500,896] → 0.9818@371  [640,3000,1024] → 0.9818@316
+            #   → See ArcFlare-A150-Ang section below for run-group.
+            # NYTimes-256 FINGER gate (D=256, alpha=1.40, np=384 ef=2000): NO EFFECT.
+            #   fgf=0.5 → -1.7% QPS. High-D makes triangle inequality too loose. NOT viable.
+            # NYTimes-256 simd-baseline (80T, updated 2026-06-29):
+            #   [3,20,16] → 0.6835@26363  [8,50,32] → 0.7413@19034
+            #   [16,80,48] → 0.7892@16632  [20,130,128] → 0.8117@6656
+            #   [24,160,160] → 0.8277@5426  [32,150,96] → 0.8473@5634
+            #   [36,170,112] → 0.8577@4447  [40,180,128] → 0.8666@4187
+            #   [44,200,128] → 0.8747@3684  [48,200,128] → 0.8812@3410
+            #   [64,250,128] → 0.9024@2845  [64,300,192] → 0.9043@2332
+            #   [72,350,192] → 0.9135@1999  [80,380,224] → 0.9212@1722
+            #   [80,420,256] → 0.9216@1519  [88,420,256] → 0.9287@1444
+            #   [96,450,256] → 0.9345@1329  [128,600,320] → 0.9535@878
+            #   [192,900,448] → 0.9710@524   [256,1200,512] → 0.9776@399
+            #   [320,1600,640] → 0.9804@308  [384,2000,768] → 0.9817@259
+            #   [512,2500,896] → 0.9823@224 (fp16 ceiling)
+            # CRINN=60 sweep (2026-07-01, 80T, 5-run, psm=24) — dramatic QPS gains on Angular:
+            #   GloVe-100: [64,300,192]→0.9162@7287(+8.1%) [128,600,320]→0.9505@4432(+30.1%)
+            #              [256,1200,512]→0.9774@2409(+51.3%) [512,2500,896]→0.9910@1040(+51.7%)
+            #   NYTimes-256: [128,600,320]→0.9508@2075(+45.5%) [192,900,448]→0.9690@1404(+41.8%)
+            #                [256,1200,512]→0.9764@543(+59.7%) [320,1600,640]→0.9795@886(+71.4%)
+            #                [384,2000,768]→0.9810@744(+77.9%)
+            # GloVe-100 low-np CRINN sweep (2026-07-01, 80T, 5-run): NOT added — Pareto-dominated or <2% gain.
+            #   np=32 crinn=60: 0.8724@12470 (+13.3%) — dominated by 0.8742@12564 (crinn=0) in Pareto front.
+            #   np=36-48 crinn=60: +0.1-1.6% QPS, recall -0.004-0.005 — too small to justify recall cost.
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[  1,   10,    8, 24, 0, 0.3, 0.3],
+               [  3,   20,   16, 24, 0, 0.3, 0.3],
+               [  4,   20,   32, 24, 0, 0.3, 0.3],
+               [  8,   50,   32, 24, 0, 0.3, 0.3],
+               [  8,   50,   64, 24, 0, 0.3, 0.3],
+               [ 12,  100,   96, 24, 0, 0.2, -1.0],
+               [ 16,   80,   48, 24, 0, 0.2, -1.0],
+               [ 16,  120,  112, 24, 0, 0.2, -1.0],
+               [ 20,  130,  128, 24, 0, 0.2, -1.0],
+               [ 24,  160,  160, 24, 0, 0.2, -1.0],
+               [ 32,  150,   96, 24, 0, 0.2, -1.0],
+               [ 32,  160,  128, 24, 0, 0.2, -1.0],
+               [ 36,  170,  112, 24, 0, 0.2, -1.0],
+               [ 40,  180,  128, 24, 0, 0.2, -1.0],
+               [ 44,  200,  128, 24, 0, 0.2, -1.0],
+               [ 48,  200,  128, 24, 0, 0.2, -1.0],
+               [ 48,  250,  192, 24, 0, 0.2, -1.0],
+               [ 64,  250,  128, 24, 0, 0.2, -1.0],
+               [ 64,  300,  192, 24, 0, 0.2, -1.0],
+               [ 64,  300,  192,  24,  60, 0.2, -1.0],
+               [ 72,  350,  192, 24, 0, 0.2, -1.0],
+               [ 80,  380,  224, 24, 0, 0.2, -1.0],
+               [ 80,  420,  256, 24, 0, 0.2, -1.0],
+               [ 88,  420,  256, 24, 0, 0.2, -1.0],
+               [ 96,  450,  256, 24, 0, 0.2, -1.0],
+               [128,  600,  320, 24, 0, 0.2, -1.0],
+               [128,  600,  320,  24,  60, 0.2, -1.0],
+               [192,  900,  448, 24, 0, 0.2, -1.0],
+               [192,  900,  448,  24,  60, 0.2, -1.0],
+               [256, 1200,  512, 24, 0, 0.2, -1.0],
+               [256, 1200,  512,  24,  60, 0.2, -1.0],
+               [320, 1600,  640, 24, 0, 0.2, -1.0],
+               [320, 1600,  640,  24,  60, 0.2, -1.0],
+               [384, 2000,  768, 24, 0, 0.2, -1.0],
+               [384, 2000,  768,  24,  60, 0.2, -1.0],
+               [512, 2500,  896, 24, 0, 0.2, -1.0],
+               [512, 2500,  896,  24,  60, 0.2, -1.0]]
+        a140-ang-m96-k1024-teps:  # ADDITIVE: term_eps=0.4 A/B vs a140-ang-m96-k1024 baseline (2026-07-24)
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # term_eps (SearchParameters::term_eps, cmd/sub_bench.hpp CLI wiring commit fa11685)
+            # reuses the beam pool's already-computed approximate distance for early
+            # termination -- structurally identical to NGT/ONNG's `distance >
+            # explorationRadius` cutoff, zero extra distance computation (unlike
+            # term_eps_fp16). Checker(opus)-verified: glove-100-angular 1T (np=64/ef=1400)
+            # gave bit-identical recall with +14-16% QPS at term_eps=0.4. Neutral-to-slightly
+            # negative at low-recall/small-ef, so scoped here to the high-recall/large-beam
+            # (ef>=900) operating points from a140-ang-m96-k1024 only -- same [np,ef,ncs] +
+            # explicit defaults (psm=24, crinn=0/auto, rpqgm=0.2, eps=-1/off) as that baseline,
+            # with term_eps=0.4 (last field) as the only delta, for a clean A/B.
+            # Full compact format here: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps]
+            - [[192,  900,  448,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [256, 1200,  512,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [320, 1600,  640,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [384, 2000,  768,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4],
+               [512, 2500,  896,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4]]
+        a140-ang-m96-k1024-apr-teps:  # ADDITIVE: adaptive_probe_ratio=1.5 + term_eps=0.4 A/B
+          # vs a140-ang-m96-k1024-teps (2026-07-24). adaptive_probe_ratio (apr) truncates
+          # coarse-quantizer probe clusters to those within centroid_dist <= dist[0]*(1+apr)
+          # of the nearest cluster (Index.cpp:2174-2217) -- an IVF-style adaptive n_probe,
+          # orthogonal to term_eps (different pipeline stage: coarse probe-cluster selection
+          # vs beam-loop early termination). IMPORTANT CALIBRATION NOTE: apr's safe range is
+          # np-dependent, NOT a universal constant. The original apr validation
+          # (adaptive-probe-ratio-validation task) used np=64/ef=1400 and found apr=0.4-0.5
+          # bit-identical there; at THESE operating points (np=192-512, i.e. probing
+          # 19-50% of K=1024 clusters) apr=0.4-0.5 measured a consistent -0.3 to -0.9pt
+          # recall LOSS instead (larger np -> wider probe_dists spread -> same relative
+          # margin prunes much more aggressively). Re-swept per-point on THIS run-group's
+          # actual [np,ef] and found apr=1.5 is bit-identical recall at all 5 points (apr=1.0
+          # is -0.01pt at np>=320, apr=0.7 is a -0.05..-0.08pt "aggressive" option not used
+          # here). apr=1.5 is what's encoded below -- do not assume 0.4/0.5 transfers to
+          # other [np,ef] combos without re-validating per point.
+          # T1 measured (glove-100-angular, same index as a140-ang-m96-k1024-teps):
+          #   np=192: recall=0.9708 (bit-identical) QPS 177->186 (+5.1%, teps-alone was +4.0%)
+          #   np=256: recall=0.9800 (bit-identical) QPS 135->143 (+5.9%, teps-alone was +5.9%)
+          #   np=320: recall=0.9854 (bit-identical) QPS 103->113 (+9.7%, teps-alone was +7.8%)
+          #   np=384: recall=0.9888 (bit-identical) QPS  83-> 93 (+12.0%, teps-alone was +9.6%)
+          #   np=512: recall=0.9922 (bit-identical) QPS  67-> 75 (+11.9%, teps-alone was +10.4%)
+          # T80 (n_threads=80, 3-rep avg, recall bit-identical to T1 in every rep):
+          #   np=192: QPS 1918.7->2024.7 (+5.5%, teps-alone T80 was +2.4%)
+          #   np=256: QPS 1407.7->1516.7 (+7.7%, teps-alone T80 was +4.4%)
+          #   np=320: QPS 1067.3->1180.0 (+10.6%, teps-alone T80 was +8.1%)
+          #   np=384: QPS  870.7-> 965.3 (+10.9%, teps-alone T80 was +6.8%)
+          #   np=512: QPS  680.0-> 750.3 (+10.3%, teps-alone T80 was +6.7%)
+          # apr's incremental contribution ON TOP OF term_eps alone: T1 +1.1-2.2%,
+          # T80 +2.3-3.8% -- modest (NOT the superadditive +268-276% seen on glove-25 at
+          # np=64/ef=1400, nor even the +29-35% seen on glove-100 at np=64/ef=1400). At
+          # these large-np operating points term_eps has already captured most of the
+          # early-termination win; apr's remaining lever (thinning probe clusters that are
+          # already a small fraction of K=1024) has much less headroom. Net effect is still
+          # unambiguously positive and bit-identical-recall at every point, and unlike
+          # term_eps alone (which decayed ~30-35% from T1->T80 at the largest ef), apr's
+          # incremental contribution does NOT decay under 80-thread contention here.
+          args: [{'alpha': 1.4, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Full compact format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr]
+            - [[192,  900,  448,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [256, 1200,  512,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [320, 1600,  640,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [384, 2000,  768,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5],
+               [512, 2500,  896,  24, 0, 0.2, -1.0, -1.0, -1.0, 0, -1.0, 0, 0.4, 1.5]]
+    ArcFlare-A140-Ang:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a140-ang-fp16:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GloVe-100 K=256 new index (mt_idmap.bin, gorder correct) on 80T:
+            #   np=2  ef=20  ncs=8   → 0.6673@53121
+            #   np=4  ef=20  ncs=16  → 0.7450@44049
+            #   np=6  ef=50  ncs=32  → 0.7909@37600
+            #   np=8  ef=80  ncs=48  → 0.8288@29197
+            #   np=12 ef=100 ncs=64  → 0.8640@19913
+            #   np=16 ef=150 ncs=96  → 0.8990@14358
+            #   np=20 ef=200 ncs=128 → 0.9199@10213
+            #   np=24 ef=250 ncs=160 → 0.9340@8148   (Glass max: 0.9329@9574)
+            #   np=28 ef=300 ncs=192 → 0.9445@6100
+            #   np=32 ef=300 ncs=192 → 0.9492@5646
+            # NYTimes-256 K=256 new index sweep (80T fp16):
+            #   np=2  ef=20  ncs=8   → 0.6638@47125
+            #   np=4  ef=20  ncs=16  → 0.7248@39956
+            #   np=8  ef=50  ncs=48  → 0.7825@29635
+            #   np=12 ef=60  ncs=64  → 0.8081@19979
+            #   np=20 ef=100 ncs=96  → 0.8497@12353
+            #   np=32 ef=200 ncs=128 → 0.8880@5320   (Glass max: 0.9584@5392)
+            #   np=64 ef=500 ncs=256 → 0.9346@1633
+            #   np=96 ef=800 ncs=320 → 0.9554@924
+            #   np=128 ef=800 ncs=384 → 0.9667@689  (> Glass max 0.9584)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[2, 20, 8, 24, 0, 0.3, 0.3],
+               [4, 20, 16, 24, 0, 0.3, 0.3],
+               [4, 50, 24, 24, 0, 0.3, 0.3],
+               [6, 50, 32, 24, 0, 0.3, 0.3],
+               [8, 50, 32, 24, 0, 0.3, 0.3],
+               [8, 80, 48, 24, 0, 0.2, -1.0],
+               [12, 100, 64, 24, 0, 0.2, -1.0],
+               [16, 100, 64, 24, 0, 0.2, -1.0],
+               [16, 150, 96, 24, 0, 0.2, -1.0],
+               [20, 200, 128, 24, 0, 0.2, -1.0],
+               [24, 200, 128, 24, 0, 0.2, -1.0],
+               [24, 250, 160, 24, 0, 0.2, -1.0],
+               [28, 250, 160, 24, 0, 0.2, -1.0],
+               [28, 300, 192, 24, 0, 0.2, -1.0],
+               [32, 300, 192, 24, 0, 0.2, -1.0],
+               [40, 400, 224, 24, 0, 0.2, -1.0],
+               [48, 400, 224, 24, 0, 0.2, -1.0],
+               [64, 500, 256, 24, 0, 0.2, -1.0],
+               [80, 600, 320, 24, 0, 0.2, -1.0],
+               [96, 800, 320, 24, 0, 0.2, -1.0],
+               [128, 800, 384, 24, 0, 0.2, -1.0]]
+        a140-ang-fp16-scantier:  # NYTimes-256 scan_tier — PROPOSED (2026-07-24,
+          # wire-scan-reorder-arcflare-py task). Needs one fresh re-measurement pass through
+          # this now-wired python harness before trusting as a dated/measured row -- these
+          # numbers are CLI-only from scan-tier-apr-wiring, not yet confirmed under harness
+          # overhead. n_probe=32, scan_reorder=150, apr=0.3 -> recall~0.7094 (-0.16%,
+          # reproducible) for +7.7-9.9% QPS; apr=0.5 -> recall~0.711 (noise-level) for
+          # +3.9-8.9% QPS (CLI-measured).
+          # WARNING: this run-group's `args` (alpha=1.4, max_edges=64, k_clusters=256) is
+          # ALSO used by a140-ang-fp16 above for glove-100-angular. glove-100 + scan_tier is
+          # INDEPENDENTLY BROKEN (near-zero recall, confirmed on 2 different glove-100
+          # indices, scan-tier-apr-wiring task finding, root cause not yet investigated).
+          # Only run this row against nytimes-256-angular -- do NOT invoke it for
+          # glove-100-angular until that bug is fixed (glove100-scantier-nearzero-recall-bug
+          # task, pending).
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Full compact format: [np, ef, ncs, psm, crinn, rpqgm, eps, srg, feef, wsb, fgf, sq4pfah, teps, apr, scan_reorder]
+            - [[32, 256, 128, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.3, 150],
+               [32, 256, 128, 0, -1, -1.0, -1.0, -1.0, -1.0, 0, -1.0, 0, -1.0, 0.5, 150]]
+        a140-ang-fp16-rf2:
+          args: [{'alpha': 1.4, 'max_edges': 64, 'k_clusters': 256, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # [ge, gt, np, mv, rf, ef, cap, eps, rr8, pe, en, ncs]
+            # GloVe-100 K=256 rf=2 new index (80T):
+            #   np=4  ef=40  ncs=16  rf=2 → 0.7450@44184
+            #   np=6  ef=50  ncs=24  rf=2 → 0.7826@38568
+            #   np=12 ef=80  ncs=48  rf=2 → 0.8477@23897
+            #   np=16 ef=120 ncs=80  rf=2 → 0.8890@16371
+            #   np=20 ef=200 ncs=128 rf=2 → 0.9199@10220
+            #   np=24 ef=250 ncs=160 rf=2 → 0.9340@8173   (Glass max: 0.9329@9574)
+            #   np=40 ef=350 ncs=224 rf=2 → 0.9593@4509
+            #   np=64 ef=500 ncs=256 rf=2 → 0.9765@2811
+            # NYTimes-256 K=256 rf=2 (80T batch):
+            #   np=8  ef=60  ncs=32  rf=2 → 0.7778@25591
+            #   np=16 ef=100 ncs=64  rf=2 → 0.8327@13452
+            #   np=24 ef=150 ncs=128 rf=2 → 0.8678@7782
+            #   np=32 ef=200 ncs=128 rf=2 → 0.8880@5713
+            #   np=64 ef=400 ncs=256 rf=2 → 0.9330@2243
+            # NYTimes-256 K=256 rf=0 high-recall (80T fp16):
+            #   np=80  ef=600  ncs=256 → 0.9461@1311
+            #   np=96  ef=800  ncs=320 → 0.9554@924
+            #   np=128 ef=800  ncs=384 → 0.9667@689  (> Glass max 0.9584)
+            #   np=192 ef=1000 ncs=512 → 0.9791@412
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            # rows converted from legacy [ge, gt, np, mv, rf, ef] to compact [np, ef, ncs, psm, crinn, rpqgm, eps]; effective params unchanged
+            - [[4, 40, 16, 24, 0, 0.3, 0.3],
+               [6, 50, 24, 24, 0, 0.3, 0.3],
+               [8, 60, 32, 24, 0, 0.3, 0.3],
+               [8, 80, 48, 24, 0, 0.2, -1.0],
+               [12, 80, 48, 24, 0, 0.2, -1.0],
+               [12, 100, 64, 24, 0, 0.2, -1.0],
+               [16, 100, 64, 24, 0, 0.2, -1.0],
+               [16, 120, 80, 24, 0, 0.2, -1.0],
+               [16, 150, 96, 24, 0, 0.2, -1.0],
+               [20, 150, 96, 24, 0, 0.2, -1.0],
+               [20, 200, 128, 24, 0, 0.2, -1.0],
+               [24, 200, 128, 24, 0, 0.2, -1.0],
+               [24, 250, 160, 24, 0, 0.2, -1.0],
+               [28, 250, 160, 24, 0, 0.2, -1.0],
+               [32, 300, 192, 24, 0, 0.2, -1.0],
+               [40, 350, 224, 24, 0, 0.2, -1.0],
+               [48, 400, 256, 24, 0, 0.2, -1.0],
+               [64, 500, 256, 24, 0, 0.2, -1.0]]
+    ArcFlare-A150-Ang:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare
+      constructor: ArcFlare
+      base-args: ["@metric"]
+      run-groups:
+        a150-ang-m96-k1024:
+          args: [{'alpha': 1.5, 'max_edges': 96, 'k_clusters': 1024, 'n_entry_points': 32, 'n_cluster_seeds': 128, 'reorder': 'gorder'}]
+          query-args:
+            # Compact [np, ef, ncs] - M96/K1024 fp16 beam (80T):
+            # NYTimes-256 alpha=1.50 (2026-07-01): does NOT exceed alpha=1.40 ceiling (0.9822).
+            #   BUT: 2-3× QPS at mid-recall vs alpha=1.40 (key advantage for Pareto front):
+            #   [128,600,320] → 0.9518@1455  [192,900,448] → 0.9698@955
+            #   [256,1200,512] → 0.9767@712 (alpha=1.40 same: 0.9771@341 → +108% QPS)
+            #   [320,1600,640] → 0.9797@535 (alpha=1.40 same: 0.9801@396 → +35% QPS)
+            #   [384,2000,768] → 0.9811@449 (alpha=1.40: 0.9815@435 → +3% QPS)
+            #   [512,2500,896] → 0.9818@371  [640,3000,1024] → 0.9818@316
+            #   Index: arcflare-D256-M96-K1024-a1.50-ep32-cs128-gorder-ang (symlink → simd-baseline)
+            # rows previously auto-filled rpqgm/eps; recall comment unverified since 2026-11-04 (now explicit; effective params unchanged)
+            - [[128,  600,  320, 24, 0, 0.2, -1.0],
+               [192,  900,  448, 24, 0, 0.2, -1.0],
+               [256, 1200,  512, 24, 0, 0.2, -1.0],
+               [320, 1600,  640, 24, 0, 0.2, -1.0],
+               [384, 2000,  768, 24, 0, 0.2, -1.0],
+               [512, 2500,  896, 24, 0, 0.2, -1.0],
+               [640, 3000, 1024, 24, 0, 0.2, -1.0],
+            # NYTimes-256 alpha=1.50 CRINN=60 (2026-07-01, 80T, 5-run):
+            #   np  base  crinn60  delta
+            #   128  1386     1904  +37.3%
+            #   192   908     1388  +52.8%
+            #   256   685     1106  +61.4%
+            #   320   518      914  +76.4%
+            #   384   433      801  +85.0%  (peak)
+            #   512   363      661  +81.9%
+               [128,  600,  320,  24,  60, 0.2, -1.0],
+               [192,  900,  448,  24,  60, 0.2, -1.0],
+               [256, 1200,  512,  24,  60, 0.2, -1.0],
+               [320, 1600,  640,  24,  60, 0.2, -1.0],
+               [384, 2000,  768,  24,  60, 0.2, -1.0],
+               [512, 2500,  896,  24,  60, 0.2, -1.0]]
     vamana(diskann):
       docker-tag: ann-benchmarks-diskann
       module: ann_benchmarks.algorithms.diskann
@@ -1115,3 +3308,24 @@ bit:
             - {"n_neighbors": 120, "diversify_prob": 0.125,
                "pruning_degree_multiplier":2.5, leaf_size: 35}
           query-args: [[0.16, 0.20, 0.24, 0.28, 0.32, 0.36]]
+    ArcFlareSet:
+      docker-tag: ann-benchmarks-arcflare
+      module: ann_benchmarks.algorithms.arcflare_set
+      constructor: ArcFlareSet
+      base-args: ["@metric"]
+      run-groups:
+        # exact beam (sig_bits=0). MinHash routing (sig_bits>0) is dominated on kosarak/ml10m
+        # (ArcFlare docs/superpowers/specs/2026-11-03-set-index-minhash-routing-negative.md): not swept.
+        # Measured 2026-11-04, kosarak-jaccard, k=10, ann-benchmarks knn recall, 1 thread pinned (taskset -c 0),
+        # NO contenders, AVX2-only dev host, best of 3 runs. (recall, qps) per ef:
+        # Measured 2026-11-26 (Wave 4 SetIndex AVX2, kosarak-jaccard, k=10, recall_annb, c30 / 1T / b64):
+        #   48:(0.9276, 6661.9 / 7035.7 / 126092.6)  64:(0.9480, 5095.3 / 5821.8 / 103921.4)
+        #   96:(0.9636, 3712.2 / 4308.1 / 77025.3)   320:(0.9910, 1486.1 / 1520.1 / 30853.0)
+        R48-nnk64-a120:
+          args: [{'R': 48, 'nn_k': 64, 'alpha': 1.2, 'sig_bits': 0}]
+          query-args: [[16, 24, 32, 48, 64, 96, 128, 192, 256, 320]]
+        # Measured 2026-11-04 (same conditions): 16:(0.8536,10177) 24:(0.8950,8075) 32:(0.9188,6846)
+        #   48:(0.9484,5206) 64:(0.9642,4310) 96:(0.9766,3220) 128:(0.9840,2596) 192:(0.9892,1899) 256:(0.9914,1503)
+        R64-nnk96-a120:
+          args: [{'R': 64, 'nn_k': 96, 'alpha': 1.2, 'sig_bits': 0}]
+          query-args: [[16, 24, 32, 48, 64, 96, 128, 192, 256]]

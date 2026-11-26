@@ -136,8 +136,9 @@ def main():
 
     # Nmslib specific code
     # Remove old indices stored on disk
-    if os.path.exists(INDEX_DIR):
-        shutil.rmtree(INDEX_DIR)
+    # NOTE: disabled for ArcFlare so cached index is preserved across runs.
+    # if os.path.exists(INDEX_DIR):
+    #     shutil.rmtree(INDEX_DIR)
 
     dataset, dimension = get_dataset(args.dataset)
     point_type = dataset.attrs.get('point_type', 'float')
@@ -233,15 +234,22 @@ def main():
     if args.parallelism > multiprocessing.cpu_count() - 1:
         raise Exception('Parallelism larger than %d! (CPU count minus one)' % (multiprocessing.cpu_count() - 1))
 
-    # Multiprocessing magic to farm this out to all CPUs
-    queue = multiprocessing.Queue()
-    for definition in definitions:
-        queue.put(definition)
     if args.batch and args.parallelism > 1:
         raise Exception(f"Batch mode uses all available CPU resources, --parallelism should be set to 1. (Was: {args.parallelism})")
-    workers = [multiprocessing.Process(target=run_worker, args=(i+1, args, queue))
-               for i in range(args.parallelism)]
-    [worker.start() for worker in workers]
-    [worker.join() for worker in workers]
+
+    if args.local and args.parallelism == 1:
+        # Run directly in the main process to avoid multiprocessing stdout/stderr
+        # redirection issues (Python 3.14 spawn/forkserver mode breaks fd inheritance).
+        for definition in definitions:
+            run(definition, args.dataset, args.count, args.runs, args.batch)
+    else:
+        # Multiprocessing magic to farm this out to all CPUs
+        queue = multiprocessing.Queue()
+        for definition in definitions:
+            queue.put(definition)
+        workers = [multiprocessing.Process(target=run_worker, args=(i+1, args, queue))
+                   for i in range(args.parallelism)]
+        [worker.start() for worker in workers]
+        [worker.join() for worker in workers]
 
     # TODO: need to figure out cleanup handling here
